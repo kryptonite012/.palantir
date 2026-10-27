@@ -120,3 +120,17 @@ def test_security_headers(client):
     assert "default-src 'self'" in r.headers["content-security-policy"]
     assert r.headers["x-frame-options"] == "DENY"
     assert r.headers["cache-control"] == "no-store"
+
+
+def test_security_admin_can_reset_lost_mfa(admin):
+    u = admin.create_user("dave")
+    d = admin.as_user(admin.login("dave", ADMIN_PW))
+    secret = d.ok(d.post("/api/auth/mfa/enroll"))["secret"]
+    d.ok(d.post("/api/auth/mfa/activate", json={"code": totp.current_code(secret)}))
+    sec = admin.create_user("secadmin", role="security_admin")
+    s = admin.as_user(admin.login("secadmin", ADMIN_PW))
+    s.ok(s.patch(f"/api/admin/users/{u['id']}", json={"reset_mfa": True}))
+    assert d.get("/api/auth/me").status_code == 401  # sessions revoked
+    assert "token" in admin.ok(admin.c.post("/api/auth/login", json={"username": "dave", "password": ADMIN_PW}))
+    ev = admin.ok(admin.get("/api/admin/audit", params={"action": "admin.user_updated"}))["events"][0]
+    assert ev["details"]["reset_mfa"] is True and ev["actor_name"] == "secadmin"

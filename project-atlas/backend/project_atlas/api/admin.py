@@ -41,6 +41,7 @@ class UserCreate(BaseModel):
 class UserPatch(BaseModel):
     display_name: str | None = None
     is_active: bool | None = None
+    reset_mfa: bool | None = None
     global_role: str | None = Field(default=None, pattern=r"^(system_admin|security_admin|none)$")
 
 
@@ -115,6 +116,11 @@ def patch_user(user_id: str, body: UserPatch, p: Principal = Depends(current_pri
             db.execute(update(UserSession).where(UserSession.user_id == u.id, UserSession.revoked_at.is_(None)).values(revoked_at=utcnow()))
     if "display_name" in changes:
         u.display_name = changes["display_name"]
+    if changes.get("reset_mfa"):
+        # Recovery for a lost authenticator: the user must re-enrol; existing sessions are revoked.
+        u.mfa_enabled = False
+        u.mfa_secret = None
+        db.execute(update(UserSession).where(UserSession.user_id == u.id, UserSession.revoked_at.is_(None)).values(revoked_at=utcnow()))
     remaining_admins = db.execute(select(func.count()).select_from(User).where(User.global_role == "system_admin",
                                                                               User.is_active.is_(True))).scalar_one()
     if remaining_admins == 0:

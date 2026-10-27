@@ -1,0 +1,135 @@
+{
+  "generated_at": "2026-10-27T19:03:03Z",
+  "python": "3.13.17",
+  "platform": "linux",
+  "total_seconds": 11.46,
+  "steps": [
+    {
+      "step": "1 install",
+      "ok": true,
+      "detail": "project_atlas 0.1.0 at /home/user/.palantir/project-atlas/backend/project_atlas",
+      "seconds": 0.038
+    },
+    {
+      "step": "2 initial administrator",
+      "ok": true,
+      "detail": "setup token required, consumed and deleted",
+      "seconds": 0.097
+    },
+    {
+      "step": "3 workspace",
+      "ok": true,
+      "detail": "prj_4e4632e2f01f4c0aba2618107de1973e",
+      "seconds": 0.019
+    },
+    {
+      "step": "5 map & validate (dry run)",
+      "ok": true,
+      "detail": "columns=10 issues={'timestamp_error': 1, 'coordinate_error': 2}",
+      "seconds": 0.142
+    },
+    {
+      "step": "4/6/9 online: import synthetic datasets",
+      "ok": true,
+      "detail": "{\"synthetic_organizations.csv\": 8, \"synthetic_people.csv\": 33, \"synthetic_contacts.csv\": 5, \"synthetic_transactions.csv\": 60}",
+      "seconds": 1.161
+    },
+    {
+      "step": "4/6/9 online: entity resolution",
+      "ok": true,
+      "detail": "3 candidates; strong=2",
+      "seconds": 0.23
+    },
+    {
+      "step": "4/6/9 online: review & merge",
+      "ok": true,
+      "detail": "merge mrg_3c13a17e75f14019a8c0f5b32b5889c2",
+      "seconds": 0.021
+    },
+    {
+      "step": "4/6/9 online: reproducible analysis",
+      "ok": true,
+      "detail": "outliers=2 sha=54e4216f32f6 reproduced identical=True",
+      "seconds": 0.095
+    },
+    {
+      "step": "7 explore graph",
+      "ok": true,
+      "detail": "Northwind Harbor Logistics Ltd: 4 works_for edges; top=Northwind Harbor Logistics Ltd",
+      "seconds": 0.037
+    },
+    {
+      "step": "8 inspect source evidence",
+      "ok": "13967fe40789a6f9f580194afd5ba5a132547d3f4454f3713d6166b4cf28a54d",
+      "detail": "record rec_cb9beca8ec69400fb63ed03ae9a562e2 from people v1 file sha256 13967fe40789",
+      "seconds": 0.054
+    },
+    {
+      "step": "10 report export",
+      "ok": true,
+      "detail": "51971 bytes, manifest lists 2 dataset versions",
+      "seconds": 0.173
+    },
+    {
+      "step": "11 restart",
+      "ok": true,
+      "detail": "new server process started",
+      "seconds": 2.107
+    },
+    {
+      "step": "12 persistence & audit",
+      "ok": true,
+      "detail": "counts identical=True; audit chain valid over 32 events",
+      "seconds": 0.154
+    },
+    {
+      "step": "backup + verify",
+      "ok": true,
+      "detail": "atlas-backup-20261027T190258Z.tar.gz 221898 bytes",
+      "seconds": 0.104
+    },
+    {
+      "step": "13 network disabled",
+      "ok": true,
+      "detail": "namespace: external network unreachable (Network is unreachable)",
+      "seconds": 0.001
+    },
+    {
+      "step": "14 offline: server start + login + new workspace",
+      "ok": true,
+      "detail": "http://127.0.0.1:50279",
+      "seconds": 2.403
+    },
+    {
+      "step": "14 offline: import synthetic datasets",
+      "ok": true,
+      "detail": "{\"synthetic_organizations.csv\": 8, \"synthetic_people.csv\": 33, \"synthetic_contacts.csv\": 5, \"synthetic_transactions.csv\": 60}",
+      "seconds": 1.173
+    },
+    {
+      "step": "14 offline: entity resolution",
+      "ok": true,
+      "detail": "3 candidates; strong=2",
+      "seconds": 0.236
+    },
+    {
+      "step": "14 offline: review & merge",
+      "ok": true,
+      "detail": "merge mrg_643f585c09644607a1f94788df3819b9",
+      "seconds": 0.021
+    },
+    {
+      "step": "14 offline: reproducible analysis",
+      "ok": true,
+      "detail": "outliers=2 sha=1278c526f405 reproduced identical=True",
+      "seconds": 0.074
+    },
+    {
+      "step": "14 offline: documents, assistant, PDF report, offline-check",
+      "ok": true,
+      "detail": "assistant=extractive; pdf=45177B; offline checks ok=True",
+      "seconds": 0.381
+    }
+  ],
+  "all_passed": true
+}

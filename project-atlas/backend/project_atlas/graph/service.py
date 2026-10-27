@@ -53,7 +53,8 @@ def edge_view(r: Relationship) -> dict[str, Any]:
     return {"id": r.id, "source": r.source_entity_id, "target": r.target_entity_id, "rel_type": r.rel_type,
             "assertion": r.assertion, "assertion_label": ASSERTION_LABELS.get(r.assertion, r.assertion),
             "status": r.status, "confidence": r.confidence,
-            "evidence_count": len((r.evidence or {}).get("records", [])) or (1 if r.evidence else 0)}
+            "evidence_count": (r.evidence or {}).get("record_count") or len((r.evidence or {}).get("records", []))
+            or (1 if r.evidence else 0)}
 
 
 def build_graph(db: Session, project_id: str, *, entity_types: list[str] | None = None, rel_types: list[str] | None = None,
@@ -146,7 +147,12 @@ def run_algorithm(db: Session, project_id: str, algorithm: str, params: dict[str
         res = {"ranking": ranked(nx.betweenness_centrality(ug, k=k, seed=42)),
                "approximate": k is not None, "sample_size": k}
     elif algorithm == "pagerank":
-        res = {"ranking": ranked(nx.pagerank(nx.DiGraph(g), alpha=float(params.get("alpha", 0.85))))}
+        alpha = float(params.get("alpha", 0.85))
+        if not 0 < alpha < 1:
+            raise ValidationFailed("alpha must be between 0 and 1")
+        scores, iterations = pagerank(nx.DiGraph(g), alpha)
+        res = {"ranking": ranked(scores), "alpha": alpha, "iterations": iterations,
+               "method": "power iteration, uniform teleport, dangling mass redistributed uniformly, tol=1e-10"}
     elif algorithm == "connected_components":
         comps = sorted((sorted(c) for c in nx.connected_components(ug)), key=lambda c: (-len(c), c[0]))
         res = {"count": len(comps), "sizes": [len(c) for c in comps],
@@ -176,6 +182,28 @@ def run_algorithm(db: Session, project_id: str, algorithm: str, params: dict[str
     res["sample_size"] = {"nodes": g.number_of_nodes(), "edges": g.number_of_edges()}
     res["limitations"] = "Computed on relationships as recorded; missing or unobserved relationships are not represented."
     return res, inputs
+
+
+def pagerank(g: nx.DiGraph, alpha: float = 0.85, tol: float = 1e-10, max_iter: int = 200) -> tuple[dict[str, float], int]:
+    """Dependency-free PageRank (NetworkX's default implementation requires SciPy)."""
+    n = g.number_of_nodes()
+    if n == 0:
+        return {}, 0
+    rank = dict.fromkeys(g, 1.0 / n)
+    out_deg = {u: g.out_degree(u) for u in g}
+    for it in range(1, max_iter + 1):
+        dangling = alpha * sum(rank[u] for u in g if out_deg[u] == 0) / n
+        nxt = dict.fromkeys(g, (1.0 - alpha) / n + dangling)
+        for u in g:
+            if out_deg[u]:
+                share = alpha * rank[u] / out_deg[u]
+                for v in g.successors(u):
+                    nxt[v] += share
+        err = sum(abs(nxt[u] - rank[u]) for u in g)
+        rank = nxt
+        if err < n * tol:
+            return rank, it
+    return rank, max_iter
 
 
 def export_subgraph(db: Session, project_id: str, node_ids: list[str], fmt: str) -> tuple[bytes, str]:

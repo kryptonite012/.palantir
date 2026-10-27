@@ -6,8 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "project-atlas"
 version = "0.1.0"
 description = "PROJECT ATLAS — Offline Intelligence and Data Operations Platform (atlas-api)"
-readme = "../README.md"
-license = "Apache-2.0"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 authors = [{ name = "Project Atlas contributors" }]
 dependencies = [
@@ -38,6 +38,7 @@ test = ["pytest>=8"]
 
 [project.scripts]
 atlas = "project_atlas.cli:main"
+atlas-desktop = "project_atlas.desktop:main"
 
 [tool.setuptools.packages.find]
 include = ["project_atlas*"]

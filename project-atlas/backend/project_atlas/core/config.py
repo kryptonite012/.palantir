@@ -153,8 +153,28 @@ def _is_loopback(host: str) -> bool:
         return False
 
 
+def read_env_file(path: Path) -> dict[str, str]:
+    """Minimal .env parser: KEY=VALUE lines, '#' comment lines, optional surrounding quotes."""
+    out: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        v = v.strip()
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+            v = v[1:-1]
+        out[k.strip()] = v
+    return out
+
+
 def load_settings(env: dict[str, str] | None = None) -> Settings:
-    e = os.environ if env is None else env
+    """Load settings from ``env`` or, by default, ``ATLAS_ENV_FILE``/``./.env`` overlaid by the process environment."""
+    if env is None:
+        env_file = Path(os.environ.get("ATLAS_ENV_FILE", ".env"))
+        e = {**(read_env_file(env_file) if env_file.is_file() else {}), **os.environ}
+    else:
+        e = env
     frontend = e.get("ATLAS_FRONTEND_DIST")
     s = Settings(
         app_name=e.get("ATLAS_APP_NAME", "Project Atlas"),

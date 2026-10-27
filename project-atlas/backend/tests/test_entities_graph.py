@@ -160,3 +160,28 @@ def test_relationship_review_of_hypothesis(admin, project, app):
     admin.ok(admin.patch(f"/api/projects/{pid}/relationships/{rid}", json={"status": "active", "note": "verified in doc"}))
     det = admin.ok(admin.get(f"/api/projects/{pid}/relationships/{rid}"))
     assert det["status"] == "active" and det["assertion"] == "model_suggested"  # provenance kept after verification
+
+
+def test_all_graph_algorithms_run(admin, project):
+    pid = project["id"]
+    load_demo(admin, pid)
+    for algo in ["degree_centrality", "betweenness_centrality", "pagerank", "connected_components", "communities"]:
+        r = admin.ok(admin.post(f"/api/projects/{pid}/graph/analyze", json={"algorithm": algo}))
+        assert r["result"]["sample_size"]["nodes"] > 0, algo
+    bad = admin.post(f"/api/projects/{pid}/graph/analyze", json={"algorithm": "pagerank", "params": {"alpha": 2}})
+    assert bad.status_code == 422
+    assert admin.post(f"/api/projects/{pid}/graph/analyze", json={"algorithm": "nonsense"}).status_code == 422
+
+
+def test_pagerank_matches_reference_values():
+    import networkx as nx
+
+    from project_atlas.graph.service import pagerank
+
+    g = nx.DiGraph([("a", "b"), ("b", "c"), ("c", "a"), ("a", "c"), ("d", "c")])
+    scores, _ = pagerank(g, 0.85)
+    assert abs(sum(scores.values()) - 1) < 1e-9
+    # reference values from networkx's pure-Python implementation (_pagerank_python, tol=1e-12)
+    expected = {"a": 0.37252685, "b": 0.19582391, "c": 0.39414924, "d": 0.0375}
+    for k, v in expected.items():
+        assert abs(scores[k] - v) < 1e-6, (k, scores[k])

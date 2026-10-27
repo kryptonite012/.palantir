@@ -22,7 +22,8 @@ from sqlalchemy.orm import Session
 from project_atlas import __version__
 from project_atlas.core.errors import NotFound, ValidationFailed
 from project_atlas.database.models import (
-    Dataset, DatasetVersion, Entity, Event, GeoFeature, QualityIssue, Record, Relationship, StoredFile, new_id, utcnow,
+    Dataset, DatasetVersion, Entity, EntitySource, Event, GeoFeature, QualityIssue, Record, Relationship, StoredFile,
+    new_id, utcnow,
 )
 from project_atlas.entities import service as entities
 from project_atlas.ingestion import normalize, parsers
@@ -316,6 +317,10 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
     batch_records: list[dict[str, Any]] = []
     batch_index: list[dict[str, Any]] = []
     batch_arrow: list[dict[str, Any]] = []
+    batch_sources: list[dict[str, Any]] = []
+    batch_events: list[dict[str, Any]] = []
+    batch_geo: list[dict[str, Any]] = []
+    rel_records: dict[tuple[str, str, str], list[str]] = {}
     from sqlalchemy import func
 
     entities_before = db.execute(select(func.count()).select_from(Entity).where(Entity.project_id == project_id)).scalar_one()
@@ -323,10 +328,16 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
     now = utcnow()
 
     def flush():
+        # Insert order respects foreign keys: records, then ORM-tracked entities/relationships, then dependents.
         if dry_run:
             return
         if batch_records:
             db.bulk_insert_mappings(Record, batch_records)
+        db.flush()
+        for model, rows in ((EntitySource, batch_sources), (Event, batch_events), (GeoFeature, batch_geo)):
+            if rows:
+                db.bulk_insert_mappings(model, rows)
+                rows.clear()
         search.index_many(db, batch_index)
         if writer is not None and batch_arrow:
             import pyarrow as pa
@@ -336,6 +347,8 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
         batch_index.clear()
         batch_arrow.clear()
 
+    prev_autoflush = db.autoflush
+    db.autoflush = False  # pending entities/relationships are flushed explicitly, after their source records
     try:
         for i, raw in enumerate(parsers.iter_rows(path, stored.detected_format, opts)):
             raw = {k: parsers.jsonable(v) for k, v in raw.items()}
@@ -353,9 +366,6 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
             batch_records.append({"id": rid, "project_id": project_id, "dataset_id": dataset.id,
                                   "dataset_version_id": version.id, "row_index": i, "raw": raw, "normalized": norm,
                                   "row_hash": rh})
-            # Records are flushed before dependent rows reference them.
-            if ent_specs or ev_spec or geo_spec:
-                flush()
             body = " ".join(f"{k}: {v}" for k, v in norm.items() if v not in (None, "") and k not in sensitive_cols)
             batch_index.append({"t": "dataset_record", "r": rid, "p": project_id, "d": dataset.id,
                                 "a": dataset.access_policy, "c": now.isoformat(), "ti": f"{dataset.name} · row {i + 1}", "b": body})
@@ -367,7 +377,8 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
                     db, ent_cache, project_id=project_id, entity_type=es["entity_type"],
                     name=norm.get(es["name_field"]) if es.get("name_field") else None,
                     id_field=es.get("id_field"), id_value=norm.get(es["id_field"]) if es.get("id_field") else None,
-                    attributes=attrs, record_id=rid, version_id=version.id, id_namespace=es.get("id_namespace"))
+                    attributes=attrs, record_id=rid, version_id=version.id, id_namespace=es.get("id_namespace"),
+                    source_rows=batch_sources)
                 row_entities.append(ent)
                 if ent is not None:
                     touched[ent.id] = ent
@@ -379,15 +390,16 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
                 vf = _parse_iso(norm.get(rs.get("valid_from_field"))) if rs.get("valid_from_field") else None
                 rel = rel_cache.get(key)
                 if rel is None:
-                    rel = Relationship(project_id=project_id, source_entity_id=s_ent.id, target_entity_id=t_ent.id,
+                    rel = Relationship(id=new_id("rel"), project_id=project_id, source_entity_id=s_ent.id, target_entity_id=t_ent.id,
                                        rel_type=rs["rel_type"], assertion="observed", status="active", confidence=None,
                                        evidence={"records": [], "dataset_version_id": version.id,
                                                  "method": f"{PIPELINE_VERSION} co-occurrence in source record"},
                                        record_id=rid, valid_from=vf, created_by=f"system:{PIPELINE_VERSION}")
                     db.add(rel)
                     rel_cache[key] = rel
+                    rel_records[key] = []
                     counters["relationships"] += 1
-                rel.evidence = {**rel.evidence, "records": rel.evidence["records"] + [rid]}
+                rel_records[key].append(rid)
                 if vf and (rel.valid_from is None or vf < _aware(rel.valid_from)):
                     rel.valid_from = vf
                 if vf and (rel.valid_to is None or vf > _aware(rel.valid_to)):
@@ -399,14 +411,16 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
                     ent = row_entities[ev_spec["entity"]] if isinstance(ev_spec.get("entity"), int) and ev_spec["entity"] < len(row_entities) else None
                     lat = norm.get(geo_spec["lat_field"]) if geo_spec else None
                     lon = norm.get(geo_spec["lon_field"]) if geo_spec else None
-                    db.add(Event(project_id=project_id, dataset_id=dataset.id, record_id=rid,
-                                 entity_id=ent.id if ent else None, title=title[:255],
-                                 category=ev_spec.get("category", dataset.name)[:64], event_time=et,
-                                 end_time=_parse_iso(norm.get(ev_spec.get("end_field"))) if ev_spec.get("end_field") else None,
-                                 source_timezone=(mapping.get(_src(mapping, ev_spec["time_field"]), {}).get("timezone") or default_tz),
-                                 source_time_text=str(raw.get(_src(mapping, ev_spec["time_field"])))[:64],
-                                 record_created_time=_parse_iso(norm.get(ev_spec.get("created_field"))) if ev_spec.get("created_field") else None,
-                                 latitude=lat if isinstance(lat, float) else None, longitude=lon if isinstance(lon, float) else None))
+                    batch_events.append(dict(
+                        id=new_id("evt"), project_id=project_id, dataset_id=dataset.id, record_id=rid,
+                        entity_id=ent.id if ent else None, title=title[:255],
+                        category=ev_spec.get("category", dataset.name)[:64], event_time=et,
+                        end_time=_parse_iso(norm.get(ev_spec.get("end_field"))) if ev_spec.get("end_field") else None,
+                        source_timezone=(mapping.get(_src(mapping, ev_spec["time_field"]), {}).get("timezone") or default_tz),
+                        source_time_text=str(raw.get(_src(mapping, ev_spec["time_field"])))[:64],
+                        record_created_time=_parse_iso(norm.get(ev_spec.get("created_field"))) if ev_spec.get("created_field") else None,
+                        ingested_at=now, modified_at=now,
+                        latitude=lat if isinstance(lat, float) else None, longitude=lon if isinstance(lon, float) else None))
                     counters["events"] += 1
             if geo_spec:
                 lat, lon = norm.get(geo_spec["lat_field"]), norm.get(geo_spec["lon_field"])
@@ -414,18 +428,23 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
                     ent = row_entities[geo_spec["entity"]] if isinstance(geo_spec.get("entity"), int) and geo_spec["entity"] < len(row_entities) else None
                     label = str(norm.get(geo_spec.get("label_field")) or f"{dataset.name} row {i + 1}")
                     props = {k: v for k, v in norm.items() if k not in sensitive_cols}
-                    db.add(GeoFeature(project_id=project_id, layer=dataset.name, kind="data", name=label[:255],
-                                      geometry={"type": "Point", "coordinates": [lon, lat]}, properties=props,
-                                      min_lon=lon, max_lon=lon, min_lat=lat, max_lat=lat,
-                                      feature_time=_parse_iso(norm.get(geo_spec.get("time_field"))) if geo_spec.get("time_field") else None,
-                                      record_id=rid, entity_id=ent.id if ent else None,
-                                      created_by=f"system:{PIPELINE_VERSION}"))
+                    batch_geo.append(dict(
+                        id=new_id("geo"), project_id=project_id, layer=dataset.name, kind="data", name=label[:255],
+                        geometry={"type": "Point", "coordinates": [lon, lat]}, properties=props,
+                        min_lon=lon, max_lon=lon, min_lat=lat, max_lat=lat,
+                        feature_time=_parse_iso(norm.get(geo_spec.get("time_field"))) if geo_spec.get("time_field") else None,
+                        record_id=rid, entity_id=ent.id if ent else None, created_by=f"system:{PIPELINE_VERSION}",
+                        created_at=now))
                     counters["geo_features"] += 1
-            if len(batch_records) + len(batch_index) >= BATCH:
+            if len(batch_records) >= BATCH:
                 flush()
             if reporter and i % 500 == 0:
                 reporter.progress(min(0.9, 0.05 + 0.85 * (i * 200) / total_bytes), f"Processed {i} rows")
+        for key, recs in rel_records.items():
+            # Evidence keeps up to 1000 source record ids per relationship plus the exact count.
+            rel_cache[key].evidence = {**rel_cache[key].evidence, "records": recs[:1000], "record_count": len(recs)}
         flush()
+        db.autoflush = prev_autoflush
         quality = qa.finish(prev_schema, schema)
         report: dict[str, Any] = {
             "pipeline_version": PIPELINE_VERSION, "software_version": __version__, "dry_run": dry_run,
@@ -464,6 +483,7 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
         db.commit()
         return report
     except BaseException:
+        db.autoflush = prev_autoflush
         db.rollback()
         if writer is not None:
             writer.close()

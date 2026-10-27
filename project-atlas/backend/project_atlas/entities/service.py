@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from project_atlas.core.errors import Conflict, NotFound, ValidationFailed
 from project_atlas.database.models import (
-    Entity, EntitySource, Event, GeoFeature, MatchCandidate, MergeHistory, Relationship, utcnow,
+    Entity, EntitySource, Event, GeoFeature, MatchCandidate, MergeHistory, Relationship, new_id, utcnow,
 )
 from project_atlas.entities import matching
 from project_atlas.ontology.service import entity_types, sensitive_fields
@@ -24,21 +24,68 @@ def identity_key(entity_type: str, id_field: str | None, value: Any) -> str | No
     return f"{entity_type}:{id_field}:{str(value).strip().lower()}"
 
 
+MAX_RECORD_IDS = 25
+
+
 def add_attribute_values(entity: Entity, values: dict[str, tuple[Any, Any]], record_id: str, version_id: str) -> None:
-    attrs = {k: list(v) for k, v in (entity.attributes or {}).items()}
+    """Record attribute values with provenance: one entry per distinct normalized value per field.
+
+    Entry: {value (first source value), normalized, record_id/dataset_version_id (first source),
+    record_ids (up to MAX_RECORD_IDS sources), count (exact number of contributing records)}.
+    Full per-record provenance is kept in ``entity_sources``.
+    """
+    attrs = dict(entity.attributes or {})
+    changed = False
     for field, (raw, norm) in values.items():
         if norm in (None, "") and raw in (None, ""):
             continue
-        lst = attrs.setdefault(field, [])
-        if not any(x.get("normalized") == norm and x.get("record_id") == record_id for x in lst):
-            lst.append({"value": raw, "normalized": norm, "record_id": record_id, "dataset_version_id": version_id})
-    entity.attributes = attrs
-    entity.updated_at = utcnow()
+        lst = list(attrs.get(field, []))
+        entry = next((x for x in lst if x.get("normalized") == norm), None)
+        if entry is None:
+            lst.append({"value": raw, "normalized": norm, "record_id": record_id, "dataset_version_id": version_id,
+                        "record_ids": [record_id], "count": 1})
+        else:
+            ids = entry.get("record_ids", [entry.get("record_id")])
+            if record_id in ids:
+                continue
+            entry = {**entry, "count": entry.get("count", 1) + 1,
+                     "record_ids": ids + [record_id] if len(ids) < MAX_RECORD_IDS else ids}
+            lst = [entry if x.get("normalized") == norm else x for x in lst]
+        attrs[field] = lst
+        changed = True
+    if changed:
+        entity.attributes = attrs
+        entity.updated_at = utcnow()
+
+
+def _combine(target: dict[str, Any], source: dict[str, Any], sign: int) -> dict[str, Any]:
+    """Add (sign=1) or subtract (sign=-1) attribute entries of ``source`` into a copy of ``target``."""
+    out = {f: [dict(x) for x in items] for f, items in (target or {}).items()}
+    for f, items in (source or {}).items():
+        lst = out.setdefault(f, [])
+        for it in items:
+            cur = next((x for x in lst if x.get("normalized") == it.get("normalized")), None)
+            ids = it.get("record_ids", [it.get("record_id")])
+            if sign > 0:
+                if cur is None:
+                    lst.append(dict(it))
+                else:
+                    cur["count"] = cur.get("count", 1) + it.get("count", 1)
+                    cur["record_ids"] = (cur.get("record_ids", []) + [i for i in ids if i not in cur.get("record_ids", [])])[:MAX_RECORD_IDS]
+            elif cur is not None:
+                cur["count"] = cur.get("count", 1) - it.get("count", 1)
+                cur["record_ids"] = [i for i in cur.get("record_ids", []) if i not in ids]
+                if cur["count"] <= 0:
+                    lst.remove(cur)
+        if not lst:
+            out.pop(f, None)
+    return out
 
 
 def upsert_from_record(db: Session, cache: dict[str, Entity], *, project_id: str, entity_type: str, name: Any,
                        id_field: str | None, id_value: Any, attributes: dict[str, tuple[Any, Any]], record_id: str,
-                       version_id: str, id_namespace: str | None = None) -> Entity | None:
+                       version_id: str, id_namespace: str | None = None,
+                       source_rows: list[dict[str, Any]] | None = None) -> Entity | None:
     """Create or extend an entity from one record.
 
     Records sharing an identifier value (within ``id_namespace``, default the id field name) map to the same
@@ -58,10 +105,9 @@ def upsert_from_record(db: Session, cache: dict[str, Entity], *, project_id: str
             while ent is not None and ent.status == "merged" and ent.merged_into_id:
                 ent = db.get(Entity, ent.merged_into_id)
     if ent is None:
-        ent = Entity(project_id=project_id, entity_type=entity_type, display_name=str(name if has_name else id_value)[:255],
-                     identity_key=key, attributes={})
+        ent = Entity(id=new_id("ent"), project_id=project_id, entity_type=entity_type,
+                     display_name=str(name if has_name else id_value)[:255], identity_key=key, attributes={})
         db.add(ent)
-        db.flush()
     if key:
         cache[key] = ent
     values = dict(attributes)
@@ -72,7 +118,10 @@ def upsert_from_record(db: Session, cache: dict[str, Entity], *, project_id: str
     if id_field and id_value not in (None, ""):
         values.setdefault(id_field, (id_value, str(id_value).strip()))
     add_attribute_values(ent, values, record_id, version_id)
-    db.add(EntitySource(entity_id=ent.id, record_id=record_id, original_entity_id=ent.id))
+    if source_rows is not None:  # batched by the caller after the source record is inserted
+        source_rows.append({"id": new_id("esr"), "entity_id": ent.id, "record_id": record_id, "original_entity_id": ent.id})
+    else:
+        db.add(EntitySource(entity_id=ent.id, record_id=record_id, original_entity_id=ent.id))
     return ent
 
 
@@ -95,7 +144,8 @@ def entity_view(db: Session, e: Entity, can_sensitive: bool, *, detail: bool = F
             "created_at": e.created_at, "updated_at": e.updated_at, "redacted_fields": sorted(hidden & set(e.attributes or {}))}
     if detail:
         view["attribute_provenance"] = {
-            f: ([{"value": REDACTED, "record_id": it.get("record_id"), "dataset_version_id": it.get("dataset_version_id")} for it in items]
+            f: ([{"value": REDACTED, "record_id": it.get("record_id"), "dataset_version_id": it.get("dataset_version_id"),
+                  "count": it.get("count", 1)} for it in items]
                 if f in hidden else items)
             for f, items in (e.attributes or {}).items()
         }
@@ -169,13 +219,8 @@ def merge(db: Session, project_id: str, survivor_id: str, merged_id: str, user_i
         "events": list(events), "geo_features": list(geos),
         "survivor_display_name": survivor.display_name,
     }
-    attrs = {k: list(v) for k, v in (survivor.attributes or {}).items()}
-    for f, items in (merged.attributes or {}).items():
-        lst = attrs.setdefault(f, [])
-        for it in items:
-            if it not in lst:
-                lst.append(it)
-    survivor.attributes = attrs
+    # The merged entity keeps its own attributes unchanged, so the merge can be subtracted exactly on revert.
+    survivor.attributes = _combine(survivor.attributes, merged.attributes, +1)
     survivor.updated_at = utcnow()
     for r in rels:
         if r.source_entity_id == merged_id:
@@ -210,11 +255,8 @@ def revert_merge(db: Session, project_id: str, merge_id: str, user_id: str) -> M
     if survivor.status != "active":
         raise Conflict("Survivor has since been merged into another entity; revert that merge first")
     snap = mh.snapshot
-    rec_ids = set(snap["merged_record_ids"])
-    survivor.attributes = {
-        f: kept for f, items in (survivor.attributes or {}).items()
-        if (kept := [it for it in items if it.get("record_id") not in rec_ids])
-    }
+    survivor.attributes = _combine(survivor.attributes, merged.attributes, -1)
+    survivor.updated_at = utcnow()
     for r in snap["relationships"]:
         rel = db.get(Relationship, r["id"])
         if rel is not None:

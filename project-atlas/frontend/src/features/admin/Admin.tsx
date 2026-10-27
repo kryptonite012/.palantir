@@ -75,6 +75,7 @@ function Users() {
             <button className="btn" onClick={() => call(() => api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { is_active: !u.is_active } }))}>{u.is_active ? "Disable" : "Enable"}</button>
             <button className="btn" onClick={() => call(async () => setToken((await api(`/api/admin/users/${u.id}/reset-token`, { method: "POST" })).token))}>Reset token</button>
             <button className="btn" onClick={() => call(() => api(`/api/admin/users/${u.id}/revoke-sessions`, { method: "POST" }))}>Revoke sessions</button>
+            {u.mfa_enabled && <button className="btn" onClick={() => confirm(`Reset MFA for ${u.username}? They must re-enrol.`) && call(() => api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { reset_mfa: true } }))}>Reset MFA</button>}
           </span>])} />
       </Card>
       {canAdmin && <Card title="Create user">

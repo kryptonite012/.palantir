@@ -115,39 +115,57 @@ def parse_query(q: str) -> ParsedQuery:
     return pq
 
 
-def index_item(db: Session, *, doc_type: str, ref_id: str, project_id: str, title: str, body: str,
-               dataset_id: str | None = None, access: str = "project", created_at: datetime | None = None) -> None:
-    db.execute(
-        text("INSERT INTO search_index (doc_type, ref_id, project_id, dataset_id, access, created_at, title, body) "
-             "VALUES (:t, :r, :p, :d, :a, :c, :ti, :b)"),
-        {"t": doc_type, "r": ref_id, "p": project_id, "d": dataset_id, "a": access,
-         "c": (created_at.isoformat() if created_at else datetime.now(timezone.utc).isoformat()), "ti": title[:500],
-         "b": body[:20000]},
-    )
+_INSERT = ("INSERT INTO search_index ({cols}doc_type, ref_id, project_id, dataset_id, access, created_at, title, body) "
+           "VALUES ({vals}:t, :r, :p, :d, :a, :c, :ti, :b)")
+
+
+def _sqlite(db: Session) -> bool:
+    return db.bind.dialect.name == "sqlite"
 
 
 def index_many(db: Session, rows: list[dict[str, Any]]) -> None:
+    """Insert search rows. On SQLite each FTS row gets an explicit rowid mirrored in the indexed
+    ``search_docs`` table so deletes by ref_id/dataset_id avoid scanning the FTS table."""
     if not rows:
         return
-    db.execute(
-        text("INSERT INTO search_index (doc_type, ref_id, project_id, dataset_id, access, created_at, title, body) "
-             "VALUES (:t, :r, :p, :d, :a, :c, :ti, :b)"),
-        rows,
-    )
+    rows = [{**r, "ti": str(r["ti"])[:500], "b": str(r["b"])[:20000]} for r in rows]
+    if _sqlite(db):
+        start = db.execute(text("SELECT coalesce(max(rowid), 0) FROM search_docs")).scalar_one()
+        for i, r in enumerate(rows, start + 1):
+            r["rowid"] = i
+        db.execute(text("INSERT INTO search_docs (rowid, ref_id, dataset_id) VALUES (:rowid, :r, :d)"), rows)
+        db.execute(text(_INSERT.format(cols="rowid, ", vals=":rowid, ")), rows)
+    else:
+        db.execute(text(_INSERT.format(cols="", vals="")), rows)
+
+
+def index_item(db: Session, *, doc_type: str, ref_id: str, project_id: str, title: str, body: str,
+               dataset_id: str | None = None, access: str = "project", created_at: datetime | None = None) -> None:
+    index_many(db, [{"t": doc_type, "r": ref_id, "p": project_id, "d": dataset_id, "a": access,
+                     "c": (created_at or datetime.now(timezone.utc)).isoformat(), "ti": title, "b": body}])
+
+
+def _delete_where(db: Session, column: str, value: str) -> None:
+    if _sqlite(db):
+        db.execute(text(f"DELETE FROM search_index WHERE rowid IN (SELECT rowid FROM search_docs WHERE {column} = :v)"), {"v": value})
+        db.execute(text(f"DELETE FROM search_docs WHERE {column} = :v"), {"v": value})
+    else:
+        db.execute(text(f"DELETE FROM search_index WHERE {column} = :v"), {"v": value})
 
 
 def remove_item(db: Session, ref_id: str) -> None:
-    db.execute(text("DELETE FROM search_index WHERE ref_id = :r"), {"r": ref_id})
+    _delete_where(db, "ref_id", ref_id)
 
 
 def remove_dataset(db: Session, dataset_id: str) -> None:
-    db.execute(text("DELETE FROM search_index WHERE dataset_id = :d"), {"d": dataset_id})
+    """Remove all rows whose parent is ``dataset_id`` (a dataset id, or a document id for document chunks)."""
+    _delete_where(db, "dataset_id", dataset_id)
 
 
 def set_dataset_access(db: Session, dataset_id: str, access: str) -> None:
-    if db.bind.dialect.name == "sqlite":
-        # FTS5 supports UPDATE of UNINDEXED columns.
-        db.execute(text("UPDATE search_index SET access = :a WHERE dataset_id = :d"), {"a": access, "d": dataset_id})
+    if _sqlite(db):
+        db.execute(text("UPDATE search_index SET access = :a WHERE rowid IN (SELECT rowid FROM search_docs WHERE dataset_id = :d)"),
+                   {"a": access, "d": dataset_id})
     else:
         db.execute(text("UPDATE search_index SET access = :a WHERE dataset_id = :d"), {"a": access, "d": dataset_id})
 

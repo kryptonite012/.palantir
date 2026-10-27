@@ -41,6 +41,10 @@ def alembic_config(url: str):
 
 
 def upgrade_database(engine: Engine) -> None:
+    import logging
+
+    if logging.getLogger().level > logging.DEBUG:
+        logging.getLogger("alembic").setLevel(logging.WARNING)
     from alembic import command
 
     cfg = alembic_config(str(engine.url.render_as_string(hide_password=False)))
