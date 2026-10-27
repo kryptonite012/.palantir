@@ -82,16 +82,26 @@ def neighborhood(db: Session, project_id: str, *, center: str | None, depth: int
                  include_unverified: bool) -> dict[str, Any]:
     depth = max(0, min(depth, 4))
     if center is None:
-        # Overview: highest-degree nodes first, progressively loadable via ``limit``.
-        g = build_graph(db, project_id, entity_types=entity_types, rel_types=rel_types, assertions=assertions,
-                        include_unverified=include_unverified)
-        ranked = sorted(g.nodes, key=lambda n: (-g.degree(n), g.nodes[n]["label"]))
-        keep = set(ranked[:limit])
-        nodes = [{"id": n, "label": g.nodes[n]["label"], "entity_type": g.nodes[n]["entity_type"], "degree": g.degree(n)} for n in ranked[:limit]]
-        edge_ids = [k for u, v, k in g.edges(keys=True) if u in keep and v in keep]
-        rels = db.execute(select(Relationship).where(Relationship.id.in_(edge_ids))).scalars().all() if edge_ids else []
-        return {"nodes": nodes, "edges": [edge_view(r) for r in rels], "truncated": len(ranked) > limit,
-                "total_nodes": g.number_of_nodes(), "total_edges": g.number_of_edges()}
+        # Overview: highest-degree nodes first (degree computed in SQL), progressively loadable via ``limit``.
+        from sqlalchemy import func, literal_column, union_all
+
+        rq = _rel_query(project_id, rel_types, assertions, include_unverified).subquery()
+        ends = union_all(select(rq.c.source_entity_id.label("eid")), select(rq.c.target_entity_id.label("eid"))).subquery()
+        deg = select(ends.c.eid, func.count().label("d")).group_by(ends.c.eid).subquery()
+        eq = (select(Entity, func.coalesce(deg.c.d, 0).label("degree")).outerjoin(deg, deg.c.eid == Entity.id)
+              .where(Entity.project_id == project_id, Entity.status == "active"))
+        if entity_types:
+            eq = eq.where(Entity.entity_type.in_(entity_types))
+        total_nodes = db.execute(select(func.count()).select_from(eq.subquery())).scalar_one()
+        rows = db.execute(eq.order_by(literal_column("degree").desc(), Entity.display_name).limit(limit)).all()
+        keep = {e.id for e, _ in rows}
+        nodes = [node_view(e, int(d)) for e, d in rows]
+        rels = db.execute(select(Relationship).where(Relationship.id.in_(select(rq.c.id)),
+                                                     Relationship.source_entity_id.in_(keep),
+                                                     Relationship.target_entity_id.in_(keep))).scalars().all() if keep else []
+        total_edges = db.execute(select(func.count()).select_from(rq)).scalar_one()
+        return {"nodes": nodes, "edges": [edge_view(r) for r in rels], "truncated": total_nodes > limit,
+                "total_nodes": total_nodes, "total_edges": total_edges}
     start = db.get(Entity, center)
     if start is None or start.project_id != project_id:
         raise NotFound("Entity not found")

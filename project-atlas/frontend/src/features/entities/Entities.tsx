@@ -161,9 +161,9 @@ export function EntityDetail() {
       <ErrorBox error={err} />
       <div className="grid gap-3 xl:grid-cols-2">
         <Card title="Attributes (with provenance)" bodyClass="">
-          <Table columns={["Field", "Source value", "Normalized", "Source record"]} rows={Object.entries(d.attribute_provenance).flatMap(([f, items]: [string, any]) =>
+          <Table columns={["Field", "Source value", "Normalized", "Records", "First source record"]} rows={Object.entries(d.attribute_provenance).flatMap(([f, items]: [string, any]) =>
             items.map((it: any, i: number) => [i === 0 ? <b>{f}</b> : "", String(it.value ?? ""), it.normalized === undefined ? "" : String(it.normalized),
-              it.record_id ? <code className="font-mono text-xxs">{it.record_id.slice(-10)}</code> : <Badge tone="warn">manual</Badge>]))} />
+              it.count ?? 1, it.record_id ? <code className="font-mono text-xxs">{it.record_id.slice(-10)}</code> : <Badge tone="warn">manual</Badge>]))} />
         </Card>
         <Card title={`Relationships (${d.relationships.length})`} bodyClass="">
           <Table maxHeight={420} columns={["Direction", "Type", "Other entity", "Basis", "Evidence"]} rows={d.relationships.map((r: any) => [

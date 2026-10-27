@@ -29,3 +29,4 @@ audit-checkpoint.key
 # Packaging output
 release/
 desktop/src-tauri/target/
+*.tsbuildinfo

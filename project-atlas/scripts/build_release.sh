@@ -16,6 +16,7 @@ VERSION="$(python3 -c "import re;print(re.search(r'__version__ = \"(.+?)\"', ope
 PLAT="$(python3 -c 'import sysconfig;print(sysconfig.get_platform().replace("-","_").replace(".","_"))')-py$(python3 -c 'import sys;print(f"{sys.version_info[0]}{sys.version_info[1]}")')"
 OUT="${1:-$ROOT/release}/project-atlas-$VERSION-$PLAT"
 
+bash "$ROOT/scripts/check_identifiers.sh"
 echo "==> Building UI"
 (cd "$ROOT/frontend" && npm ci --no-audit --no-fund && npm run build)
 rm -rf "$ROOT/backend/project_atlas/static"
