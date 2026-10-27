@@ -76,7 +76,7 @@ described in [docs/installation.md](docs/installation.md) and [docs/offline-oper
 ## Tests
 
 ```bash
-cd backend && python -m pytest                       # 94 API/unit/security tests
+cd backend && python -m pytest                       # 97 API/unit/security tests
 cd frontend && npm test                              # unit tests (Vitest)
 python scripts/acceptance_scenario.py                # 14-step release scenario incl. a network-isolated phase (Linux)
 ATLAS_URL=http://127.0.0.1:8000 ATLAS_SETUP_TOKEN_FILE=atlas-workspace/setup-token.txt node frontend/tests/e2e/smoke.mjs   # UI E2E
