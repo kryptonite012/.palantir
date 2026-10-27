@@ -1,0 +1,141 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Northwind Harbor district",
+        "record_origin": "SYNTHETIC"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10.688699999999999,
+              59.8575
+            ],
+            [
+              10.7887,
+              59.8575
+            ],
+            [
+              10.7887,
+              59.957499999999996
+            ],
+            [
+              10.688699999999999,
+              59.957499999999996
+            ],
+            [
+              10.688699999999999,
+              59.8575
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Bluefjord district",
+        "record_origin": "SYNTHETIC"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10.154499999999999,
+              59.694
+            ],
+            [
+              10.2545,
+              59.694
+            ],
+            [
+              10.2545,
+              59.794
+            ],
+            [
+              10.154499999999999,
+              59.794
+            ],
+            [
+              10.154499999999999,
+              59.694
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kestrel Bay district",
+        "record_origin": "SYNTHETIC"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10.614999999999998,
+              59.389
+            ],
+            [
+              10.715,
+              59.389
+            ],
+            [
+              10.715,
+              59.489
+            ],
+            [
+              10.614999999999998,
+              59.489
+            ],
+            [
+              10.614999999999998,
+              59.389
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Aurora Point district",
+        "record_origin": "SYNTHETIC"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              11.122,
+              60.076
+            ],
+            [
+              11.222000000000001,
+              60.076
+            ],
+            [
+              11.222000000000001,
+              60.175999999999995
+            ],
+            [
+              11.122,
+              60.175999999999995
+            ],
+            [
+              11.122,
+              60.076
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

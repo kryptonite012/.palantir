@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+wheelhouse/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+
+# Atlas runtime data (never commit workspaces, databases, backups, models or secrets)
+atlas-workspace/
+atlas-backups/
+models/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+.env
+setup-token.txt
+audit-checkpoint.key
+
+# Packaging output
+release/
+desktop/src-tauri/target/

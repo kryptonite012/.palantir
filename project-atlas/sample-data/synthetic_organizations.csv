@@ -1,0 +1,9 @@
+org_id,name,registration_number,country,sector,record_origin
+ORG-001,Northwind Harbor Logistics Ltd,NO-918273,Norway,Shipping,SYNTHETIC
+ORG-002,Bluefjord Freight AS,NO-552190,Norway,Freight,SYNTHETIC
+ORG-003,Kestrel Customs Brokers,NO-330871,Norway,Customs,SYNTHETIC
+ORG-004,Aurora Cold Storage,NO-774512,Norway,Warehousing,SYNTHETIC
+ORG-005,Meridian Marine Insurance,GB-0981123,United Kingdom,Insurance,SYNTHETIC
+ORG-006,Tidewater Port Services,NO-661023,Norway,Port services,SYNTHETIC
+ORG-007,Halcyon Trading GmbH,DE-HRB44512,Germany,Trading,SYNTHETIC
+ORG-008,Saltmarsh Consulting,NO-118845,Norway,Consulting,SYNTHETIC
