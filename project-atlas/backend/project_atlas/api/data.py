@@ -187,6 +187,11 @@ def patch_dataset(dataset_id: str, body: DatasetPatch, acc: ProjectAccess = Depe
             raise ValidationFailed("access_policy must be project or restricted")
         acc.require("project.manage")
         search.set_dataset_access(db, ds.id, changes["access_policy"])
+    if "retention_policy" in changes:
+        from project_atlas.retention import POLICIES
+
+        if changes["retention_policy"] not in POLICIES:
+            raise ValidationFailed(f"retention_policy must be one of {POLICIES}")
     for k, v in changes.items():
         setattr(ds, k, v)
     db.commit()

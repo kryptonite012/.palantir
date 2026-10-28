@@ -346,3 +346,29 @@ def offline_check(p: Principal = Depends(current_principal), ctx: AtlasContext =
             "limitations": ["The guard covers only the Atlas Python process; OS-level firewalling or a physical air gap is "
                             "required for air-gap assurance.",
                             "This check cannot detect connections made by other software on the machine."]}
+
+
+# --------------------------------------------------------------------------- retention
+
+
+@router.get("/retention")
+def retention_review(p: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+    p.require_global("admin.settings")
+    from project_atlas.retention import POLICY_DAYS, review
+
+    return {**review(db), "policies": POLICY_DAYS}
+
+
+@router.post("/retention/apply")
+def retention_apply(confirm: bool = False, p: Principal = Depends(current_principal), db: Session = Depends(get_db),
+                    ctx: AtlasContext = Depends(get_ctx)):
+    """Purge superseded dataset versions past retention and notify owners about expired current versions."""
+    p.require_global("admin.settings")
+    if not confirm:
+        raise ValidationFailed("Retention purges data permanently; pass confirm=true", details={"requires_confirmation": True})
+    from project_atlas.retention import apply_retention
+
+    res = apply_retention(ctx, db, actor_id=p.id)
+    ctx.audit.record("retention.apply", actor_id=p.id, actor_name=p.name, resource_type="retention",
+                     details={k: res[k] for k in ("purged_versions", "purged_records", "review_required")})
+    return res

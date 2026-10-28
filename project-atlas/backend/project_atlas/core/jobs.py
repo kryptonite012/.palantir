@@ -125,6 +125,14 @@ class JobRunner:
                 j.progress = 1.0
                 j.message = j.message or "Completed"
             s.commit()
+        try:
+            from project_atlas.notifications import job_finished
+
+            with self.ctx.sm() as s:
+                job_finished(s, job, status, result or {}, error)
+                s.commit()
+        except Exception as exc:  # noqa: BLE001 - notifications must never break job completion
+            log.warning("could not create job notification: %s", exc)
         self.ctx.audit.record(
             f"job.{status}", actor_id=job.created_by, actor_name="system:jobs", resource_type="job",
             resource_id=job_id, project_id=job.project_id, outcome="success" if status == "succeeded" else "failure",

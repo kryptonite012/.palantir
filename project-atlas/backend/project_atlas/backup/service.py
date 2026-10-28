@@ -292,28 +292,62 @@ def list_backups(ctx: "AtlasContext") -> list[dict[str, Any]]:
     return out
 
 
+def scheduled_passphrase(ctx: "AtlasContext") -> str | None:
+    """Passphrase for scheduled backups, read from ATLAS_BACKUP_PASSPHRASE_FILE at each run (never stored by Atlas)."""
+    f = ctx.settings.backup_passphrase_file
+    if f is None:
+        return None
+    if not f.is_file():
+        raise ValidationFailed(f"ATLAS_BACKUP_PASSPHRASE_FILE {f} does not exist")
+    if os.name == "posix" and f.stat().st_mode & 0o077:
+        raise ValidationFailed(f"{f} must not be readable by group/other (chmod 600)")
+    pw = f.read_text(encoding="utf-8").strip()
+    if len(pw) < 12:
+        raise ValidationFailed("Scheduled backup passphrase must be at least 12 characters")
+    return pw
+
+
 class BackupScheduler:
-    def __init__(self, ctx: "AtlasContext", interval_hours: float):
-        self.ctx, self.interval = ctx, interval_hours * 3600
+    """Background maintenance: scheduled (optionally encrypted) backups and optional retention sweeps."""
+
+    def __init__(self, ctx: "AtlasContext", interval_hours: float, retention_hours: float = 0.0):
+        self.ctx, self.interval, self.retention_interval = ctx, interval_hours * 3600, retention_hours * 3600
         self._stop = threading.Event()
-        self.thread: threading.Thread | None = None
+        self.threads: list[threading.Thread] = []
         self.last_error: str | None = None
 
     def start(self) -> None:
-        if self.interval <= 0:
-            return
-        self.thread = threading.Thread(target=self._loop, name="atlas-backup-scheduler", daemon=True)
-        self.thread.start()
+        for interval, fn, name in ((self.interval, self._backup, "atlas-backup-scheduler"),
+                                   (self.retention_interval, self._retention, "atlas-retention-scheduler")):
+            if interval > 0:
+                t = threading.Thread(target=self._loop, args=(interval, fn), name=name, daemon=True)
+                t.start()
+                self.threads.append(t)
 
-    def _loop(self) -> None:
-        while not self._stop.wait(self.interval):
-            try:
-                create_backup(self.ctx, user_id=None, passphrase=None, kind="scheduled")
-                self.ctx.audit.record("backup.scheduled", actor_id=None, actor_name="system:scheduler", resource_type="backup")
-            except Exception as exc:  # noqa: BLE001
-                self.last_error = str(exc)
-                self.ctx.audit.record("backup.scheduled", actor_id=None, actor_name="system:scheduler", resource_type="backup",
-                                      outcome="failure", details={"error": str(exc)})
+    def _loop(self, interval: float, fn) -> None:
+        while not self._stop.wait(interval):
+            fn()
+
+    def _backup(self) -> None:
+        try:
+            res = create_backup(self.ctx, user_id=None, passphrase=scheduled_passphrase(self.ctx), kind="scheduled")
+            self.ctx.audit.record("backup.scheduled", actor_id=None, actor_name="system:scheduler", resource_type="backup",
+                                  resource_id=res["filename"], details={"encrypted": res["encrypted"]})
+        except Exception as exc:  # noqa: BLE001
+            self.last_error = str(getattr(exc, "message", exc))
+            self.ctx.audit.record("backup.scheduled", actor_id=None, actor_name="system:scheduler", resource_type="backup",
+                                  outcome="failure", details={"error": self.last_error})
+
+    def _retention(self) -> None:
+        from project_atlas.retention import apply_retention
+
+        try:
+            with self.ctx.sm() as db:
+                apply_retention(self.ctx, db, actor_id=None)
+        except Exception as exc:  # noqa: BLE001
+            self.last_error = str(exc)
+            self.ctx.audit.record("retention.apply", actor_id=None, actor_name="system:scheduler", resource_type="retention",
+                                  outcome="failure", details={"error": str(exc)})
 
     def stop(self) -> None:
         self._stop.set()

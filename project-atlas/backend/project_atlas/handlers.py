@@ -20,6 +20,12 @@ def ingest_job(ctx, job: Job, reporter: JobReporter) -> dict[str, Any]:
                      resource_id=report["dataset"]["id"], project_id=job.project_id,
                      details={"version": report["dataset"]["version"], "records": report["counts"]["records"],
                               "file_sha256": report["file"]["sha256"]})
+    from project_atlas.notifications import watched_entities_updated
+
+    with ctx.sm() as db:
+        watched_entities_updated(db, project_id=job.project_id, dataset_version_id=report["dataset"]["version_id"],
+                                 dataset_name=report["dataset"]["name"], actor_id=job.created_by)
+        db.commit()
     reporter.progress(1.0, f"Imported {report['counts']['records']} records")
     return {"dataset": report["dataset"], "counts": report["counts"], "quality": report["quality"]}
 
@@ -64,3 +70,21 @@ def backup_job(ctx, job: Job, reporter: JobReporter) -> dict[str, Any]:
 
     reporter.progress(0.1, "Snapshotting database")
     return create_backup(ctx, user_id=job.created_by, passphrase=None, kind=job.params.get("kind", "manual"))
+
+
+@register("demo_load")
+def demo_job(ctx, job: Job, reporter: JobReporter) -> dict[str, Any]:
+    from project_atlas.demo.loader import load_demo
+
+    res = load_demo(ctx, project_id=job.project_id, user_id=job.created_by, reporter=reporter)
+    ctx.audit.record("demo.loaded", actor_id=job.created_by, actor_name="system:demo", resource_type="project",
+                     resource_id=job.project_id, project_id=job.project_id, details={"datasets": res["datasets"]})
+    return res
+
+
+@register("retention_sweep")
+def retention_job(ctx, job: Job, reporter: JobReporter) -> dict[str, Any]:
+    from project_atlas.retention import apply_retention
+
+    with ctx.sm() as db:
+        return apply_retention(ctx, db, actor_id=job.created_by)

@@ -36,7 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         token = ctx.ensure_setup_token()
         if token:
             log.warning("No users exist. Initial setup token written to %s", ctx.setup_token_path)
-        scheduler = BackupScheduler(ctx, settings.backup_interval_hours)
+        scheduler = BackupScheduler(ctx, settings.backup_interval_hours, settings.retention_enforce_hours)
         scheduler.start()
         yield
         scheduler.stop()
@@ -77,11 +77,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     from project_atlas.api import (
         admin, ai, analysis, auth, data, documents, entities, investigations, projects, reports, search, workflows,
+        workspace,
     )
 
     for r in (auth.router, admin.router, projects.router, data.router, data.jobs_router, entities.router, search.router,
               documents.router, analysis.router, investigations.router, workflows.router, reports.router, ai.router,
-              admin.system_router):
+              admin.system_router, workspace.router):
         app.include_router(r)
 
     @app.get("/api/health")

@@ -417,3 +417,62 @@ def export_graph(body: SnapshotCreate, fmt: str = "graphml", acc: ProjectAccess 
     audit(ctx, acc, "export.graph", "graph", None, details={"format": fmt, "nodes": len(body.node_ids), "name": body.name})
     return Response(content=data, media_type=media,
                     headers={"Content-Disposition": f'attachment; filename="atlas-subgraph.{fmt}"'})
+
+
+@router.get("/graph/explain")
+def explain_connection(source: str, target: str, max_paths: int = 3, include_unverified: bool = False,
+                       acc: ProjectAccess = Depends(project_access), db: Session = Depends(get_db),
+                       ctx: AtlasContext = Depends(get_ctx)):
+    """How are two entities connected? Shortest paths with the relationships and source evidence behind every hop."""
+    import networkx as nx
+
+    from project_atlas.api.common import can_read_dataset, redact_record
+    from project_atlas.database.models import DatasetVersion
+
+    acc.require("graph.read")
+    a, b = _entity(db, acc, source), _entity(db, acc, target)
+    t0 = time.perf_counter()
+    g = graph.build_graph(db, acc.project_id, include_unverified=include_unverified)
+    if a.id not in g or b.id not in g:
+        raise ValidationFailed("Both entities must be active")
+    ug = nx.Graph(g)
+    try:
+        paths = list(nx.all_shortest_paths(ug, a.id, b.id))[: max(1, min(max_paths, 10))]
+    except nx.NetworkXNoPath:
+        paths = []
+    labels = nx.get_node_attributes(g, "label")
+    datasets: dict[str, Dataset | None] = {}
+    versions: dict[str, DatasetVersion | None] = {}
+
+    def evidence_sample(r: Relationship) -> dict | None:
+        rid = (r.evidence or {}).get("records", [None])[0] if (r.evidence or {}).get("records") else r.record_id
+        rec = db.get(Record, rid) if rid else None
+        if rec is None:
+            return {"kind": "assertion", "text": (r.evidence or {}).get("justification") or (r.evidence or {}).get("quote")}
+        ds = datasets.setdefault(rec.dataset_id, db.get(Dataset, rec.dataset_id))
+        if ds is None or not can_read_dataset(acc, ds):
+            return {"kind": "record", "restricted": True}
+        dv = versions.setdefault(rec.dataset_version_id, db.get(DatasetVersion, rec.dataset_version_id))
+        hidden = set() if acc.can("sensitive.read") else {f["name"] for f in dv.schema_json["fields"] if f.get("sensitive")}
+        vals = redact_record(rec.normalized, hidden)
+        return {"kind": "record", "record_id": rec.id, "dataset": ds.name, "row_index": rec.row_index,
+                "text": "; ".join(f"{k}={v}" for k, v in vals.items() if v not in (None, ""))[:400]}
+
+    out = []
+    for p in paths:
+        hops = []
+        for u, v in zip(p, p[1:]):
+            keys = [k for k in g.get_edge_data(u, v, default={})] + [k for k in g.get_edge_data(v, u, default={})]
+            rels = db.execute(select(Relationship).where(Relationship.id.in_(keys))).scalars().all()
+            hops.append({"from": {"id": u, "label": labels.get(u)}, "to": {"id": v, "label": labels.get(v)},
+                         "relationships": [{**graph.edge_view(r), "valid_from": r.valid_from, "valid_to": r.valid_to,
+                                            "evidence_sample": evidence_sample(r)} for r in rels]})
+        bases = {rel["assertion"] for h in hops for rel in h["relationships"]}
+        out.append({"length": len(p) - 1, "nodes": [{"id": n, "label": labels.get(n)} for n in p], "hops": hops,
+                    "bases": sorted(bases),
+                    "all_observed": bases == {"observed"}})
+    audit(ctx, acc, "graph.explain", "entity", a.id, details={"target": b.id, "paths": len(out)})
+    return {"source": {"id": a.id, "label": a.display_name}, "target": {"id": b.id, "label": b.display_name},
+            "found": bool(out), "paths": out, "duration_ms": round((time.perf_counter() - t0) * 1000, 1),
+            "note": "A path shows recorded links only. It does not establish intent, knowledge or wrongdoing; "
+                    "check each hop's basis and evidence."}

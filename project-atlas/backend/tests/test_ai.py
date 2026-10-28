@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import ADMIN_PW, SAMPLE, Api, load_demo, make_settings
+from conftest import ADMIN_PW, SAMPLE, Api, load_demo, make_settings  # noqa: F401
 from project_atlas.ai import service as ai
 from project_atlas.main import create_app
 
@@ -127,3 +127,53 @@ def test_ai_disabled_everything_else_works(admin, project):
     admin.ok(admin.post(f"/api/projects/{pid}/documents", json={"file_id": f["id"]}))
     ans = admin.ok(admin.post(f"/api/projects/{pid}/documents/ask", json={"question": "Who approved payments?"}))
     assert ans["mode"] == "extractive"
+
+
+def test_ask_data_two_step(ai_api):
+    pid = ai_api.ok(ai_api.post("/api/projects", json={"name": "AI5"}))["id"]
+    load_demo(ai_api, pid)
+    STATE["generate"] = lambda b: ("SELECT city, count(*) AS n FROM people GROUP BY city ORDER BY n DESC"
+                                   if "Schema:" in b["prompt"] else "Northwind Harbor has the most people (9).")
+    d = ai_api.ok(ai_api.post(f"/api/projects/{pid}/ai/ask-data", json={"question": "people per city"}))
+    assert d["stage"] == "draft" and d["valid"] and d["executed"] is False
+    r = ai_api.ok(ai_api.post(f"/api/projects/{pid}/ai/ask-data", json={"question": "people per city", "sql": d["sql"], "execute": True}))
+    assert r["stage"] == "result" and r["columns"] == ["city", "n"] and r["narrative_label"] == "model_description_of_result"
+    assert sum(row[1] for row in r["rows"]) == 33
+    bad = ai_api.post(f"/api/projects/{pid}/ai/ask-data", json={"question": "x y z", "sql": "DELETE FROM people", "execute": True})
+    assert bad.status_code == 422
+
+
+def test_schema_mapping_suggestions_validated(ai_api):
+    pid = ai_api.ok(ai_api.post("/api/projects", json={"name": "AI6"}))["id"]
+    f = ai_api.upload(pid, SAMPLE / "synthetic_people.csv")
+    STATE["generate"] = lambda b: json.dumps({"email": {"target": "contact_email", "type": "email", "sensitive": True},
+                                              "full_name": {"target": "Bad Name!", "type": "string"},
+                                              "city": {"target": "city", "type": "planet"}, "ghost": {"target": "g", "type": "string"}})
+    r = ai_api.ok(ai_api.post(f"/api/projects/{pid}/ai/schema-mapping", json={"file_id": f["id"]}))
+    assert r["suggestions"] == {"email": {"target": "contact_email", "type": "email", "sensitive": True}}
+    assert {x["column"] for x in r["rejected"]} == {"full_name", "city", "ghost"}
+    assert r["deterministic"]["email"]["type"] == "email" and r["label"] == "model_suggestion_unverified"
+
+
+def test_quality_narrative_and_investigation_summary_and_report_draft(ai_api):
+    pid = ai_api.ok(ai_api.post("/api/projects", json={"name": "AI7"}))["id"]
+    load_demo(ai_api, pid)
+    ds = next(d for d in ai_api.ok(ai_api.get(f"/api/projects/{pid}/datasets")) if d["name"] == "transactions")
+    STATE["generate"] = lambda b: "Fix the coordinate errors first."
+    q = ai_api.ok(ai_api.get(f"/api/projects/{pid}/datasets/{ds['id']}/quality/explain", params={"use_model": True}))
+    assert q["narrative"] == "Fix the coordinate errors first." and q["explanations"]
+    inv = ai_api.ok(ai_api.post(f"/api/projects/{pid}/investigations", json={"title": "Payments"}))
+    assert ai_api.post(f"/api/projects/{pid}/ai/investigations/{inv['id']}/summary").status_code == 422  # nothing yet
+    rec = ai_api.ok(ai_api.get(f"/api/projects/{pid}/datasets/{ds['id']}/records", params={"limit": 10}))["records"][7]
+    ai_api.ok(ai_api.post(f"/api/projects/{pid}/investigations/{inv['id']}/evidence", json={"source_type": "record", "source_ref": rec["id"]}))
+    ai_api.ok(ai_api.post(f"/api/projects/{pid}/investigations/{inv['id']}/findings", json={"title": "Large payment", "statement": "T-5007 is large."}))
+    STATE["generate"] = lambda b: "One draft finding about a large payment [E1]; see also [E9]."
+    s = ai_api.ok(ai_api.post(f"/api/projects/{pid}/ai/investigations/{inv['id']}/summary"))
+    assert s["cited"] == ["E1"] and s["invalid_citations"] == ["E9"] and s["warning"]
+    run = ai_api.ok(ai_api.post(f"/api/projects/{pid}/analyses", json={"kind": "outliers", "dataset_version_id": ds["latest"]["version_id"],
+                                                                       "params": {"field": "amount"}}))
+    rpt = ai_api.ok(ai_api.post(f"/api/projects/{pid}/reports", json={"title": "R", "definition": {"sections": [
+        {"type": "analysis", "analysis_run_id": run["id"]}]}}))
+    STATE["generate"] = lambda b: "Two payments were statistical outliers [F1]."
+    d = ai_api.ok(ai_api.post(f"/api/projects/{pid}/ai/reports/{rpt['id']}/draft"))
+    assert d["cited"] == ["F1"] and d["label"] == "model_draft_requires_review" and "outliers" in d["facts"][0]

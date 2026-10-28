@@ -100,60 +100,10 @@ def project(admin):
     return admin.ok(admin.post("/api/projects", json={"name": "Northwind Review", "description": "synthetic"}))
 
 
-PEOPLE_CONFIG = {
-    "dataset_name": "people", "is_synthetic": True,
-    "mapping": {
-        "person_id": {"target": "person_id", "type": "identifier"},
-        "full_name": {"target": "full_name", "type": "string", "required": True},
-        "email": {"target": "email", "type": "email", "sensitive": True},
-        "phone": {"target": "phone", "type": "phone", "sensitive": True},
-        "date_of_birth": {"target": "date_of_birth", "type": "date", "sensitive": True},
-        "city": {"target": "city", "type": "string"},
-        "employer_id": {"target": "employer_id", "type": "identifier"},
-        "record_origin": {"target": "record_origin", "type": "string"},
-    },
-    "quality": {"unique": ["person_id"]},
-    "entities": [
-        {"entity_type": "person", "name_field": "full_name", "id_field": "person_id",
-         "attributes": ["email", "phone", "date_of_birth", "city"]},
-        {"entity_type": "organization", "id_field": "employer_id", "id_namespace": "org_id"},
-    ],
-    "relationships": [{"source": 0, "target": 1, "rel_type": "works_for"}],
-}
-
-ORG_CONFIG = {
-    "dataset_name": "organizations", "is_synthetic": True,
-    "mapping": {"org_id": {"target": "org_id", "type": "identifier"}, "name": {"target": "name", "type": "string"},
-                "registration_number": {"target": "registration_number", "type": "identifier"},
-                "country": {"target": "country", "type": "string"}, "sector": {"target": "sector", "type": "string"},
-                "record_origin": {"target": "record_origin", "type": "string"}},
-    "entities": [{"entity_type": "organization", "name_field": "name", "id_field": "org_id",
-                  "id_namespace": "org_id", "attributes": ["registration_number", "country"]}],
-}
-
-CONTACTS_CONFIG = {
-    "dataset_name": "contacts", "is_synthetic": True,
-    "mapping": {"name": {"target": "name", "type": "string"}, "email": {"target": "email", "type": "email", "sensitive": True},
-                "phone": {"target": "phone", "type": "phone", "sensitive": True}, "city": {"target": "city", "type": "string"},
-                "source_note": {"target": "source_note", "type": "string"},
-                "record_origin": {"target": "record_origin", "type": "string"}},
-    "entities": [{"entity_type": "person", "name_field": "name", "attributes": ["email", "phone", "city"]}],
-}
-
-TXN_CONFIG = {
-    "dataset_name": "transactions", "is_synthetic": True,
-    "mapping": {"txn_id": {"target": "txn_id", "type": "identifier"}, "sender_id": {"target": "sender_id", "type": "identifier"},
-                "receiver_org_id": {"target": "receiver_org_id", "type": "identifier"},
-                "amount": {"target": "amount", "type": "float"}, "currency": {"target": "currency", "type": "string"},
-                "timestamp": {"target": "event_time", "type": "datetime"},
-                "latitude": {"target": "latitude", "type": "latitude"}, "longitude": {"target": "longitude", "type": "longitude"},
-                "city": {"target": "city", "type": "string"}, "record_origin": {"target": "record_origin", "type": "string"}},
-    "entities": [{"entity_type": "person", "id_field": "sender_id", "id_namespace": "person_id"},
-                 {"entity_type": "organization", "id_field": "receiver_org_id", "id_namespace": "org_id"}],
-    "relationships": [{"source": 0, "target": 1, "rel_type": "transacted_with", "valid_from_field": "event_time"}],
-    "events": {"time_field": "event_time", "title_template": "Payment {txn_id}: {amount} {currency}", "category": "payment", "entity": 0},
-    "geo": {"lat_field": "latitude", "lon_field": "longitude", "label_field": "txn_id", "entity": 0, "time_field": "event_time"},
-}
+from project_atlas.demo.loader import CONTACTS as CONTACTS_CONFIG  # noqa: E402
+from project_atlas.demo.loader import ORGANIZATIONS as ORG_CONFIG  # noqa: E402
+from project_atlas.demo.loader import PEOPLE as PEOPLE_CONFIG  # noqa: E402
+from project_atlas.demo.loader import TRANSACTIONS as TXN_CONFIG  # noqa: E402
 
 
 def load_demo(api: Api, pid: str) -> dict:

@@ -163,3 +163,56 @@ class QualityAccumulator:
             "schema_drift": drift,
             "duplicate_rows": self.counts.get("duplicate_row", 0),
         }
+
+
+# Plain-language explanations of each check (deterministic; used with or without a local model).
+EXPLANATIONS: dict[str, dict[str, str]] = {
+    "missing_required": {"meaning": "A field marked required is empty.",
+                         "causes": "Incomplete source export, wrong column mapped, or values written as a null token (NA, -, unknown).",
+                         "action": "Check the source system; adjust the mapping or the null tokens; re-import as a new version."},
+    "invalid_format": {"meaning": "A value does not match its declared type or pattern (e.g. an e-mail without '@').",
+                       "causes": "Manual data entry, obfuscated values, or a column mapped to the wrong type.",
+                       "action": "Review the listed values; correct at source or map the column as plain text."},
+    "unexpected_type": {"meaning": "A numeric or boolean field contains text that cannot be converted.",
+                        "causes": "Units or currency symbols inside the value, locale-specific number formats, or mixed columns.",
+                        "action": "Split units into their own column or map the field as text; the original value is preserved."},
+    "timestamp_error": {"meaning": "A date/time could not be parsed, or is implausible (in the future or very old).",
+                        "causes": "Unsupported format, day/month confusion, placeholder dates, or clock errors in the source.",
+                        "action": "Set an explicit format or time zone in the mapping; review implausible values before analysis."},
+    "coordinate_error": {"meaning": "Latitude/longitude out of range, a (0, 0) placeholder, or only one coordinate present.",
+                         "causes": "Swapped lat/lon, missing geocoding, or default values written by the source.",
+                         "action": "Correct at source. Atlas never infers missing coordinates; affected rows produce no map point."},
+    "duplicate_row": {"meaning": "Two rows are identical after normalization.",
+                      "causes": "Repeated export, merged files, or retries in the source pipeline.",
+                      "action": "Usually safe to deduplicate in a workflow; confirm the source does not record repeated events legitimately."},
+    "duplicate_key": {"meaning": "A field declared unique has repeated values.",
+                      "causes": "Re-used identifiers, multiple versions of the same record, or a non-unique key choice.",
+                      "action": "Confirm which field is the true key; duplicates of the same identifier map to one entity."},
+    "referential_integrity": {"meaning": "A value refers to a record that does not exist in the referenced dataset.",
+                              "causes": "The referenced dataset is incomplete or out of date, or identifiers are formatted differently.",
+                              "action": "Import the missing reference data or normalize identifier formatting."},
+    "inconsistent_units": {"meaning": "A numeric column mixes units (e.g. kg and g).",
+                           "causes": "Values from different systems or manual entry with unit suffixes.",
+                           "action": "Normalize to a single unit before statistics; mixed units distort averages and outliers."},
+    "schema_drift": {"meaning": "This version's fields differ from the previous version.",
+                     "causes": "The source export changed (columns added, removed or retyped).",
+                     "action": "Review downstream workflows and reports that depend on the changed fields."},
+    "encoding": {"meaning": "Text contains replacement characters or mojibake (e.g. 'Ã©' for 'é').",
+                 "causes": "The file was decoded with the wrong character encoding.",
+                 "action": "Re-inspect with an explicit encoding (cp1252, latin-1) and import a new version."},
+    "parse_error": {"meaning": "A line could not be parsed (e.g. invalid JSON in a JSONL file).",
+                    "causes": "Truncated or corrupted export.",
+                    "action": "Repair the source file; the failed lines are listed with their line numbers."},
+    "extra_columns": {"meaning": "A row has more values than the header.",
+                      "causes": "Unquoted delimiters inside values.",
+                      "action": "Fix quoting at source or choose the correct delimiter."},
+}
+
+
+def explain(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = summary.get("rows") or 0
+    out = []
+    for check, n in sorted((summary.get("issue_counts") or {}).items(), key=lambda kv: -kv[1]):
+        e = EXPLANATIONS.get(check, {"meaning": check, "causes": "", "action": ""})
+        out.append({"check": check, "count": n, "share_of_rows": round(n / rows, 4) if rows else None, **e})
+    return out

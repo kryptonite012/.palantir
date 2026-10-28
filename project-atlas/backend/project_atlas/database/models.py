@@ -705,3 +705,45 @@ class BackupManifest(Base):
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[str | None] = mapped_column(String(40))
     created_at: Mapped[datetime] = _ts()
+
+
+# --------------------------------------------------------------------------- personal workspace features
+
+
+class SavedView(Base):
+    """A named UI location (path + query string) a user wants to return to."""
+
+    __tablename__ = "saved_views"
+    id: Mapped[str] = _pk("svw")
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    created_at: Mapped[datetime] = _ts()
+
+
+class Watch(Base):
+    """A user's watch on an entity: new evidence about it raises a notification."""
+
+    __tablename__ = "watches"
+    __table_args__ = (UniqueConstraint("user_id", "entity_id"),)
+    id: Mapped[str] = _pk("wch")
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    entity_id: Mapped[str] = mapped_column(ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at: Mapped[datetime] = _ts()
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (Index("ix_notifications_user_read", "user_id", "read_at"),)
+    id: Mapped[str] = _pk("ntf")
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)  # job | watch | retention | system
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    link: Mapped[str | None] = mapped_column(String(1024))
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _ts()

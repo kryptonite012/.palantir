@@ -85,6 +85,8 @@ class Settings:
     frontend_dist: Path | None = None
     backup_interval_hours: float = 0.0
     backup_retention: int = 10
+    backup_passphrase_file: Path | None = None
+    retention_enforce_hours: float = 0.0
     extra: dict = field(default_factory=dict)
 
     @property
@@ -201,6 +203,8 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         frontend_dist=Path(frontend) if frontend else None,
         backup_interval_hours=float(e.get("ATLAS_BACKUP_INTERVAL_HOURS") or 0),
         backup_retention=_int(e.get("ATLAS_BACKUP_RETENTION"), 10),
+        backup_passphrase_file=Path(e["ATLAS_BACKUP_PASSPHRASE_FILE"]) if e.get("ATLAS_BACKUP_PASSPHRASE_FILE") else None,
+        retention_enforce_hours=float(e.get("ATLAS_RETENTION_ENFORCE_HOURS") or 0),
     )
     s.validate()
     return s

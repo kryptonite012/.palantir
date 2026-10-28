@@ -277,6 +277,10 @@ def run_import(ctx: "AtlasContext", db: Session, *, project_id: str, user_id: st
         if db.execute(select(Dataset).where(Dataset.project_id == project_id, Dataset.name == name)).scalar_one_or_none():
             raise ValidationFailed(f"A dataset named {name!r} already exists; pass dataset_id to add a version")
         if not dry_run:
+            from project_atlas.retention import POLICIES
+
+            if cfg.get("retention_policy", "indefinite") not in POLICIES:
+                raise ValidationFailed(f"retention_policy must be one of {POLICIES}")
             policy = cfg.get("access_policy", "project")
             if policy not in {"project", "restricted"}:
                 raise ValidationFailed("access_policy must be 'project' or 'restricted'")
