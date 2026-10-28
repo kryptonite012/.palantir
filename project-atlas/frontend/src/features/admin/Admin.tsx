@@ -1,21 +1,27 @@
 import { useState } from "react";
+import { askConfirm, askText } from "../../components/feedback";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { api, pp } from "../../services/api";
 import { useCan, useGlobalCan, usePQuery, useProjectId } from "../../app/hooks";
 import { Badge, Card, ErrorBox, Field, Json, Notice, PageHeader, Table, Tabs, fmtBytes, fmtTime } from "../../components/ui";
 
+type AdminTab = "system" | "users" | "members" | "ontology" | "backups" | "retention" | "models";
+
 export function AdminPage() {
-  const [tab, setTab] = useState<"system" | "users" | "members" | "ontology" | "backups" | "models">("system");
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<AdminTab>((params.get("tab") as AdminTab) ?? "system");
   return (
     <div className="space-y-3">
       <PageHeader title="Administration" subtitle="Users, project membership, ontology, backups, local AI models and offline verification." />
       <Tabs value={tab} onChange={setTab} tabs={[{ id: "system", label: "System & offline" }, { id: "users", label: "Users" }, { id: "members", label: "Project members" },
-        { id: "ontology", label: "Ontology" }, { id: "backups", label: "Backup & restore" }, { id: "models", label: "AI models" }]} />
+        { id: "ontology", label: "Ontology" }, { id: "backups", label: "Backup & restore" }, { id: "retention", label: "Retention" }, { id: "models", label: "AI models" }]} />
       {tab === "system" && <System />}
       {tab === "users" && <Users />}
       {tab === "members" && <Members />}
       {tab === "ontology" && <Ontology />}
       {tab === "backups" && <Backups />}
+      {tab === "retention" && <Retention />}
       {tab === "models" && <Models />}
     </div>
   );
@@ -75,7 +81,8 @@ function Users() {
             <button className="btn" onClick={() => call(() => api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { is_active: !u.is_active } }))}>{u.is_active ? "Disable" : "Enable"}</button>
             <button className="btn" onClick={() => call(async () => setToken((await api(`/api/admin/users/${u.id}/reset-token`, { method: "POST" })).token))}>Reset token</button>
             <button className="btn" onClick={() => call(() => api(`/api/admin/users/${u.id}/revoke-sessions`, { method: "POST" }))}>Revoke sessions</button>
-            {u.mfa_enabled && <button className="btn" onClick={() => confirm(`Reset MFA for ${u.username}? They must re-enrol.`) && call(() => api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { reset_mfa: true } }))}>Reset MFA</button>}
+            {u.mfa_enabled && <button className="btn" onClick={async () => (await askConfirm({ title: `Reset MFA for ${u.username}?`, body: "Their sessions are revoked and they must re-enrol an authenticator.", danger: true, confirmText: "Reset MFA" }))
+              && call(() => api(`/api/admin/users/${u.id}`, { method: "PATCH", body: { reset_mfa: true } }))}>Reset MFA</button>}
           </span>])} />
       </Card>
       {canAdmin && <Card title="Create user">
@@ -163,8 +170,8 @@ function Backups() {
   const [busy, setBusy] = useState(false);
   if (!can) return <Notice tone="warn">Requires a system administrator.</Notice>;
   const call = async (fn: () => Promise<any>) => { setErr(null); setBusy(true); try { setRes(await fn()); list.refetch(); } catch (e) { setErr(e); } finally { setBusy(false); } };
-  const action = (path: string, filename: string, confirm = false) => {
-    const passphrase = filename.endsWith(".enc") ? prompt("Backup passphrase:") ?? undefined : undefined;
+  const action = async (path: string, filename: string, confirm = false) => {
+    const passphrase = filename.endsWith(".enc") ? (await askText({ title: "Backup passphrase", password: true, confirmText: "Continue" })) ?? undefined : undefined;
     return call(() => api(`/api/admin/backups/${path}`, { body: { filename, passphrase, confirm } }));
   };
   return (
@@ -175,7 +182,7 @@ function Backups() {
           b.counts?.records ?? "?", b.verified_at ? fmtTime(b.verified_at) : "—",
           <span className="flex gap-1"><button className="btn" onClick={() => action("verify", b.filename)}>Verify</button>
             <button className="btn" onClick={() => action("restore", b.filename)}>Restore preview</button>
-            <button className="btn btn-danger" onClick={() => { if (confirm(`Restore ${b.filename}? The current database and files are moved aside first.`)) action("restore", b.filename, true); }}>Restore</button></span>])} empty="No backups yet" />
+            <button className="btn btn-danger" onClick={async () => { if (await askConfirm({ title: `Restore ${b.filename}?`, body: "The current database and files are moved aside to .pre-restore-<time> first, then replaced by the backup.", danger: true, confirmText: "Restore" })) action("restore", b.filename, true); }}>Restore</button></span>])} empty="No backups yet" />
       </Card>
       <div className="space-y-3">
         <Card title="Create backup">
@@ -216,6 +223,35 @@ function Models() {
           <button className="btn btn-primary" onClick={() => call(() => api("/api/ai/models", { body: Object.fromEntries(Object.entries({ ...form, ram_mb: form.ram_mb ? Number(form.ram_mb) : undefined }).filter(([, v]) => v !== "")) }))}>Register</button>
         </div>
       </Card>}
+    </div>
+  );
+}
+
+function Retention() {
+  const can = useGlobalCan("admin.settings");
+  const plan = useQuery<any>({ queryKey: ["retention"], queryFn: () => api("/api/admin/retention"), enabled: can });
+  const [res, setRes] = useState<any>(null);
+  const [err, setErr] = useState<unknown>(null);
+  if (!can) return <Notice tone="warn">Requires a system administrator.</Notice>;
+  const apply = async () => {
+    const n = plan.data?.purge?.length ?? 0;
+    if (!(await askConfirm({ title: "Apply retention now?", danger: true, confirmText: `Purge ${n} version(s)`,
+      body: `${n} superseded dataset version(s) past their retention period will have their records permanently removed. Current versions are never deleted automatically; their owners are notified instead.` }))) return;
+    try { setRes(await api("/api/admin/retention/apply", { method: "POST", params: { confirm: true } })); plan.refetch(); } catch (e) { setErr(e); }
+  };
+  const rows = (items: any[]) => items.map((i) => [i.dataset, `v${i.version}`, i.policy, fmtTime(i.imported_at), i.records]);
+  return (
+    <div className="space-y-3">
+      <Notice>Policies count from each version's import time: 1y = 365 days, 3y = 1 095, 7y = 2 555. <i>indefinite</i> and <i>until case closed</i> never expire automatically.
+        Purged versions keep a tombstone so lineage and report manifests still resolve. Automatic sweeps: <code>ATLAS_RETENTION_ENFORCE_HOURS</code>.</Notice>
+      <ErrorBox error={err} />
+      {res && <Notice tone="ok">Purged {res.purged_versions} version(s) ({res.purged_records} records); {res.review_required} current version(s) flagged for review.</Notice>}
+      <Card title={`Superseded versions past retention (${plan.data?.purge?.length ?? 0})`} actions={<button className="btn btn-danger" disabled={!plan.data?.purge?.length} onClick={apply}>Apply retention</button>} bodyClass="">
+        <Table columns={["Dataset", "Version", "Policy", "Imported", "Records"]} rows={rows(plan.data?.purge ?? [])} empty="Nothing to purge" />
+      </Card>
+      <Card title={`Current versions past retention — review required (${plan.data?.review_required?.length ?? 0})`} bodyClass="">
+        <Table columns={["Dataset", "Version", "Policy", "Imported", "Records"]} rows={rows(plan.data?.review_required ?? [])} empty="None" />
+      </Card>
     </div>
   );
 }

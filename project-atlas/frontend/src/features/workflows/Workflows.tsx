@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { askConfirm } from "../../components/feedback";
 import { addEdge, Background, Connection, Controls, Edge, Handle, Node, NodeProps, Position, ReactFlow, useEdgesState, useNodesState } from "@xyflow/react";
 import { api, pp, waitForJob } from "../../services/api";
 import { useCan, usePQuery, useProjectId } from "../../app/hooks";
@@ -79,7 +80,7 @@ export function WorkflowsPage() {
   const preview = () => call(async () => { const r = await api(pp(pid, `/workflows/${wfId}/preview`), { body: {} }); setResult(r); paint(r.nodes); });
   const run = () => call(async () => {
     const needs = nodes.some((n) => (n.data as any).spec.side_effect);
-    if (needs && !confirm("This workflow writes data or exports files. Run it for real?")) return;
+    if (needs && !(await askConfirm({ title: "Run with side effects?", body: "This workflow writes data or exports files. A failure rolls data writes back.", confirmText: "Run" }))) return;
     const r = await api(pp(pid, `/workflows/${wfId}/runs`), { body: { confirm: needs } });
     await waitForJob(r.job_id);
     const detail = await api(pp(pid, `/workflows/${wfId}/runs/${r.run_id}`));

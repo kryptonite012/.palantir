@@ -17,6 +17,12 @@ shortcuts (`g` then a letter jumps to a module, e.g. `g g` graph, `g s` search).
 as tabs; panels with a divider can be resized; theme, tabs, panel sizes and recent projects are
 remembered in this browser.
 
+## 1b. Fastest start: the demo workspace
+
+*Projects → Create demo workspace* (system administrators) loads everything below automatically in a few
+seconds, so you can explore before importing your own data. Press **Ctrl/⌘ K** anywhere to jump to a page,
+dataset, document or entity by name, or to save the current page as a *view*.
+
 ## 2. Create a workspace and invite people
 
 *Projects → New project* (system administrators). The default ontology is created automatically.
@@ -67,6 +73,11 @@ Each card lists compared features, similarity per feature, conflicting fields an
 because a side is missing them. Choose which record survives, give a reason (audited), or reject.
 *Merge history* can revert any merge.
 
+## 5b. Watch entities
+
+On an entity page press **☆ Watch**. When a later import adds source records about it, you get a
+notification (top bar *Alerts*) linking back to the entity. Your watchlist is on the home page.
+
 ## 6. Knowledge graph
 
 Overview loads the best-connected nodes first; double-click to focus a node, set depth, filter by
@@ -74,6 +85,9 @@ relationship type and basis (*observed*, *inferred*, *model hypothesis*, *manual
 hypotheses explicitly. Line styles encode the basis. Run degree/PageRank/betweenness centrality,
 communities, components, or select two nodes (shift-click) for *shortest path*. Save snapshots (with layout)
 and export GraphML/GEXF/JSON. Click an edge to see how it was created and its evidence records.
+**Explain connection**: shift-click two nodes, then *Explain connection* — each path lists every hop's
+relationships, their basis (observed / inferred / hypothesis / manual) and a sample of the source record.
+A path shows recorded links only; it does not establish intent or wrongdoing.
 
 ## 7. Search
 
@@ -105,6 +119,18 @@ Every run records inputs and a result hash; *Runs & reproducibility → Reproduc
 *SQL console*: read-only queries over current dataset versions, e.g.
 `select receiver_org_id, count(*), sum(amount) from transactions group by 1`.
 
+## 10b. Optional local AI assistants
+
+Shown only when a local model is registered and healthy and your role allows AI use. Every output is labelled
+as model output.
+* *Analytics → Ask your data*: type a question; the model drafts SQL; **you review and run it**; the result table
+  is computed deterministically and the model only describes it.
+* *Ingestion → Map fields → Suggest with local AI*: proposed names/types/sensitivity, validated before applying
+  (marked **AI** in the table).
+* *Data Catalog → Quality*: plain-language explanations always; *Prioritise with local AI* adds a summary.
+* *Investigation → Summarise with local AI*: cites evidence as [E1]…; citations to non-existent evidence are flagged.
+* *Reports → Draft summary (AI)*: drafts from confirmed findings and recorded analyses; insert explicitly, then edit.
+
 ## 11. Investigations
 
 Create an investigation (objective, scope/authorization basis, classification), add collaborators, link
@@ -131,4 +157,5 @@ redactions) and its SHA-256.
 
 *Audit Center*: filter events, verify the hash chain, write signed checkpoints, export CSV.
 *Administration*: system status and offline verification, users (disable, reset tokens, revoke
-sessions), members, ontology editor, backups (create/verify/restore preview/restore) and local AI models.
+sessions, reset MFA), members, ontology editor, backups (create/verify/restore preview/restore), retention
+(preview and apply) and local AI models. *Projects* offers archive/unarchive and permanent deletion.

@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { askText, toast } from "../../components/feedback";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, pp } from "../../services/api";
-import { useCan, usePQuery, useProjectId } from "../../app/hooks";
-import { Badge, Card, Empty, ErrorBox, Json, PageHeader, Spinner, Table, Tabs, fmtNum, fmtTime } from "../../components/ui";
+import { useAI, useCan, usePQuery, useProjectId } from "../../app/hooks";
+import { Badge, Card, Empty, ErrorBox, Json, Notice, PageHeader, Spinner, Table, Tabs, fmtNum, fmtTime } from "../../components/ui";
 import type { Dataset } from "../../types/api";
 
 export function Catalog() {
@@ -53,6 +54,9 @@ export function DatasetDetail() {
   const canWrite = useCan("dataset.write");
   const canManage = useCan("project.manage");
   const canDelete = useCan("dataset.delete");
+  const ai = useAI();
+  const explain = usePQuery<any>(["quality-explain", datasetId], `/datasets/${datasetId}/quality/explain`, undefined, tab === "quality");
+  const [narrative, setNarrative] = useState<string | null>(null);
   if (d.isLoading) return <Spinner />;
   if (d.error || !d.data) return <ErrorBox error={d.error} />;
   const ds = d.data;
@@ -68,11 +72,14 @@ export function DatasetDetail() {
     } catch (e) { setErr(e); }
   };
   const del = async () => {
-    const name = prompt(`Type the dataset name (${ds.name}) to permanently delete it and its derived records:`);
+    const name = await askText({ title: `Delete dataset “${ds.name}”?`, danger: true, confirmText: "Delete permanently",
+      body: "All versions, records, derived events, map points and observed relationships are removed. Entities supported only by this dataset are removed too.",
+      mustEqual: ds.name });
     if (name === null) return;
     try {
       await api(pp(pid, `/datasets/${ds.id}`), { method: "DELETE", params: { confirm_name: name } });
       qc.invalidateQueries();
+      toast.ok(`Deleted ${ds.name}`);
       nav("/catalog");
     } catch (e) { setErr(e); }
   };
@@ -133,6 +140,23 @@ export function DatasetDetail() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">{Object.entries(quality.data?.summary?.issue_counts ?? {}).map(([k, n]) => <Badge key={k} tone="warn">{k}: {String(n)}</Badge>)}
             {Object.keys(quality.data?.summary?.issue_counts ?? {}).length === 0 && <Badge tone="ok">no issues detected</Badge>}</div>
+          {(explain.data?.explanations ?? []).length > 0 && (
+            <Card title="What these issues mean" actions={ai && <button className="btn" onClick={() => api(pp(pid, `/datasets/${ds.id}/quality/explain`), { params: { use_model: true } })
+              .then((r) => setNarrative(r.narrative)).catch(setErr)}>Prioritise with local AI</button>}>
+              {narrative && <Notice tone="hypo"><Badge tone="hypo">model summary</Badge> {narrative}</Notice>}
+              <div className="mt-2 grid gap-2 md:grid-cols-2">
+                {explain.data.explanations.map((x: any) => (
+                  <div key={x.check} className="rounded border border-line p-2 text-xs">
+                    <p className="font-semibold">{x.check.replaceAll("_", " ")} <span className="font-mono text-warn">{x.count}</span>
+                      {x.share_of_rows != null && <span className="text-muted"> · {(x.share_of_rows * 100).toFixed(1)}% of rows</span>}</p>
+                    <p>{x.meaning}</p>
+                    {x.causes && <p className="text-muted"><b>Likely causes:</b> {x.causes}</p>}
+                    {x.action && <p className="text-muted"><b>What to do:</b> {x.action}</p>}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
           <Card bodyClass="">
             <Table maxHeight={560} columns={["Row", "Field", "Check", "Severity", "Message", "Value"]} rows={(quality.data?.issues ?? []).map((i: any) => [
               i.row_index != null ? i.row_index + 1 : "—", i.field ?? "—", i.check, <Badge tone={i.severity === "error" ? "danger" : "warn"}>{i.severity}</Badge>, i.message, i.value ?? ""])} />

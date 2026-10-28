@@ -1,4 +1,21 @@
-# Engineering report — PROJECT ATLAS 0.1.0
+# Engineering report — PROJECT ATLAS 0.2.0
+
+## 0.2.0 update (2026-10-28)
+
+| Suite | Result |
+|---|---|
+| Backend (`pytest`) | **111 passed** (adds demo workspace, saved views, watches/notifications, activity/insights, explain connection, quality explanations, retention, project delete, encrypted scheduled backups, 5 new AI assistant tests) |
+| Frontend unit (Vitest) | **11 passed** (adds in-app dialogs/toasts) |
+| UI end-to-end (Playwright) | **passed** — now also creates the demo workspace from the UI, uses the command palette, watches an entity, explains a connection, opens quality explanations and the notifications panel |
+| Acceptance scenario (14 steps, incl. network-isolated phase) | **all passed** |
+
+Status changes since 0.1.0: local-AI exploration, schema mapping, quality explanations, investigation summaries and
+report drafting are now **implemented** (tested against the mock runtime); retention is **enforced**; generic saved
+views, scheduled encrypted backups and project deletion are **completed**. The rest of this report describes the
+0.1.0 baseline; measurements in §2 were taken on 0.1.0 code plus the listed performance fixes.
+
+---
+
 
 Date: 2026-10-27. Build/test machine: Linux x86-64 (kernel 6.18), 4 vCPU, 15 GB RAM, Python 3.13.17,
 Node 22.22. All figures below were measured in this environment; nothing is estimated unless stated.
@@ -139,23 +156,23 @@ modules · synthetic dataset with ground truth.
 ### Partial
 | Area | What exists | What is missing |
 |---|---|---|
-| Local AI | registry, health/checksums, grounded QA, SQL drafts, document summaries, relationship hypotheses, embeddings/semantic search — tested against a **mock** Ollama-compatible runtime | not run against a real model here; AI-assisted natural-language exploration, schema mapping, quality explanations, investigation summaries and report drafting are not implemented (deterministic schema-mapping suggestions exist); reranking models can be registered but are unused |
+| Local AI | registry, health/checksums, grounded QA, SQL drafts, ask-your-data (draft → review → run → described result), schema-mapping suggestions, quality summaries, investigation summaries and report drafts with citation checks, document summaries, relationship hypotheses, embeddings/semantic search — tested against a **mock** Ollama-compatible runtime (0.2) | not run against a real model here; reranking models can be registered but are unused |
 | OCR | tesseract/pdftoppm path for image-only PDF pages, status reported per document | untested (engine not installed here); no OCR for standalone images |
 | Language detection | stop-word heuristic for en/es/fr/de/it/pt/nl | other languages report "undetermined" |
-| Saved views / tabs | route tabs, remembered panel sizes and filters per page, saved searches, graph snapshots with layout | no generic saved views for every module; tabs are page history, not independent workspaces |
+| Tabs | route tabs, remembered panel sizes, saved searches, graph snapshots with layout, generic per-user saved views and a command palette (0.2) | tabs are page history, not independent workspaces |
 | Resumable processing | failed/interrupted jobs retry from the start (atomic, idempotent) | no mid-file resume |
 | Field-level permissions | sensitive-field flag with role-based redaction | no per-user/per-field grants |
 | Model permissions | global `admin.models`; AI use per project role | no per-project model allow-lists |
 | Workflow editor | typed nodes, validation, preview, runs, versions | complex parameters edited as JSON |
-| Retention | policy recorded per dataset | no automatic expiry |
+| Retention | policies validated; superseded versions past retention purged with tombstones; expired current versions notify owners; optional periodic sweep (0.2) | current versions are never deleted automatically (by design) |
 | Geospatial | points, polygons, bbox, radius, joins, clustering, heatmap | planar point-in-polygon; no line/polygon intersection operations; basemap is 1:110m |
 | Account recovery | administrator-issued one-time tokens | no self-service recovery (deliberately, offline) |
 
 ### Deferred
 Native Tauri/Electron shell (PyInstaller + chromeless browser used instead) · Windows `.exe`/MSI and macOS
 builds (must be produced on those OSes) · dedicated graph database (not justified at measured scale) ·
-optional external search engine and vector database · scheduled encrypted backups · project deletion UI ·
-multi-process job workers.
+optional external search engine and vector database · multi-process job workers. (Scheduled encrypted backups
+and project deletion were delivered in 0.2.)
 
 ### Implemented but untested
 PostgreSQL deployment (migrations, tsvector search, connection) · PowerShell installer · Windows/macOS

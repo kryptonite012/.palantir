@@ -3,7 +3,7 @@
 Generated from the application by `scripts/generate_api_docs.py`; the machine-readable spec is
 [`openapi.json`](openapi.json) and the interactive docs are served at `/api/docs`.
 
-146 operations.
+167 operations.
 
 Authentication: `Authorization: Bearer <token>` from `POST /api/auth/login` (or `/api/auth/setup`).
 Errors: `{"error": {"code", "message", "details"}}` with HTTP 400/401/403/404/409/422/429/503.
@@ -21,6 +21,8 @@ Project-scoped routes return 404 to non-members.
 | POST | `/api/admin/backups` | Make Backup |
 | POST | `/api/admin/backups/restore` | Preview (confirm=false) shows the manifest and verification; confirm=true performs the restore. |
 | POST | `/api/admin/backups/verify` | Verify |
+| GET | `/api/admin/retention` | Retention Review |
+| POST | `/api/admin/retention/apply` | Purge superseded dataset versions past retention and notify owners about expired current versions. |
 | GET | `/api/admin/users` | List Users |
 | POST | `/api/admin/users` | Create User |
 | GET | `/api/admin/users/directory` | Minimal user listing so project admins can add members. |
@@ -36,11 +38,16 @@ Project-scoped routes return 404 to non-members.
 | PATCH | `/api/ai/models/{model_id}` | Toggle Model |
 | POST | `/api/ai/models/{model_id}/check` | Check Model |
 | GET | `/api/ai/status` | Ai Status |
+| POST | `/api/projects/{project_id}/ai/ask-data` | Natural-language data exploration in two explicit steps. |
 | POST | `/api/projects/{project_id}/ai/documents/{document_id}/relationship-hypotheses` | Stores model suggestions as *unverified* relationships that reviewers must verify or reject. |
 | POST | `/api/projects/{project_id}/ai/documents/{document_id}/summary` | Summarize |
 | POST | `/api/projects/{project_id}/ai/embeddings` | Embed Docs |
+| POST | `/api/projects/{project_id}/ai/investigations/{inv_id}/summary` | Investigation Summary |
+| POST | `/api/projects/{project_id}/ai/reports/{report_id}/draft` | Draft an executive summary from the report's reviewed findings and recorded analyses (never auto-inserted). |
+| POST | `/api/projects/{project_id}/ai/schema-mapping` | Schema Mapping |
 | GET | `/api/projects/{project_id}/ai/semantic-search` | Semantic |
 | POST | `/api/projects/{project_id}/ai/sql-draft` | Sql Draft |
+| GET | `/api/projects/{project_id}/datasets/{dataset_id}/quality/explain` | Plain-language explanation of a dataset version's quality issues; optional local-model summary. |
 
 ## analytics
 
@@ -121,6 +128,7 @@ Project-scoped routes return 404 to non-members.
 | GET | `/api/projects/{project_id}/entities/{entity_id}` | Entity Detail |
 | GET | `/api/projects/{project_id}/graph` | Get Graph |
 | POST | `/api/projects/{project_id}/graph/analyze` | Analyze Graph |
+| GET | `/api/projects/{project_id}/graph/explain` | How are two entities connected? Shortest paths with the relationships and source evidence behind every hop. |
 | POST | `/api/projects/{project_id}/graph/export` | Export Graph |
 | GET | `/api/projects/{project_id}/graph/snapshots` | List Snapshots |
 | POST | `/api/projects/{project_id}/graph/snapshots` | Create Snapshot |
@@ -229,3 +237,21 @@ Project-scoped routes return 404 to non-members.
 | POST | `/api/projects/{project_id}/workflows/{workflow_id}/preview` | Execute on at most 200 rows per input; side-effecting nodes are skipped; nothing is persisted. |
 | POST | `/api/projects/{project_id}/workflows/{workflow_id}/runs` | Run |
 | GET | `/api/projects/{project_id}/workflows/{workflow_id}/runs/{run_id}` | Get Run |
+
+## workspace
+
+| Method | Path | Summary |
+|---|---|---|
+| GET | `/api/notifications` | Notifications |
+| POST | `/api/notifications/read` | Mark Read |
+| POST | `/api/projects/demo` | Create a project and load the SYNTHETIC Northwind Harbor dataset through the normal pipelines. |
+| DELETE | `/api/projects/{project_id}` | Permanently delete a project and all of its data. System administrators who are project admins only. |
+| GET | `/api/projects/{project_id}/activity` | Activity |
+| PATCH | `/api/projects/{project_id}/archive` | Archive |
+| GET | `/api/projects/{project_id}/insights` | Dashboard breakdowns, all computed from the project's current data (empty lists when there is none). |
+| GET | `/api/projects/{project_id}/watches` | List Watches |
+| DELETE | `/api/projects/{project_id}/watches/{entity_id}` | Unwatch |
+| PUT | `/api/projects/{project_id}/watches/{entity_id}` | Watch |
+| GET | `/api/views` | List Views |
+| POST | `/api/views` | Save View |
+| DELETE | `/api/views/{view_id}` | Delete View |

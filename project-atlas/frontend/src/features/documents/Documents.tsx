@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "../../components/feedback";
 import { useSearchParams } from "react-router-dom";
 import { api, download, pp, waitForJob } from "../../services/api";
 import { useCan, usePQuery, useProjectId } from "../../app/hooks";
@@ -77,7 +78,7 @@ function DocumentView({ id, page, onPage, canAI }: { id: string; page: number; o
         <div className="flex gap-1">
           <button className="btn" onClick={() => download(pp(pid, `/documents/${id}/original`), doc.title)}>Original</button>
           {canAI && <button className="btn" onClick={() => api(pp(pid, `/ai/documents/${id}/summary`), { method: "POST" }).then(setSummary).catch(setErr)}>Summarize (local AI)</button>}
-          {canAI && <button className="btn" onClick={() => api(pp(pid, `/ai/documents/${id}/relationship-hypotheses`), { method: "POST" }).then((r) => alert(`${r.created.length} unverified hypotheses created for review`)).catch(setErr)}>Suggest relationships</button>}
+          {canAI && <button className="btn" onClick={() => api(pp(pid, `/ai/documents/${id}/relationship-hypotheses`), { method: "POST" }).then((r) => toast.ok(`${r.created.length} unverified hypotheses created for review`)).catch(setErr)}>Suggest relationships</button>}
         </div>
       </div>
       <ErrorBox error={err} />

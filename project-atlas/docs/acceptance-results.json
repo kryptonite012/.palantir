@@ -1,92 +1,92 @@
 {
-  "generated_at": "2026-10-27T19:43:40Z",
+  "generated_at": "2026-10-28T12:25:50Z",
   "python": "3.13.17",
   "platform": "linux",
-  "total_seconds": 11.02,
+  "total_seconds": 11.85,
   "steps": [
     {
       "step": "1 install",
       "ok": true,
-      "detail": "project_atlas 0.1.0 at /home/user/.palantir/project-atlas/backend/project_atlas",
-      "seconds": 0.037
+      "detail": "project_atlas 0.2.0 at /home/user/.palantir/project-atlas/backend/project_atlas",
+      "seconds": 0.038
     },
     {
       "step": "2 initial administrator",
       "ok": true,
       "detail": "setup token required, consumed and deleted",
-      "seconds": 0.091
+      "seconds": 0.128
     },
     {
       "step": "3 workspace",
       "ok": true,
-      "detail": "prj_5f5ded6f6819439d87665a8234c57149",
+      "detail": "prj_36636bc59e0b447ea85f6201fd51100d",
       "seconds": 0.019
     },
     {
       "step": "5 map & validate (dry run)",
       "ok": true,
       "detail": "columns=10 issues={'timestamp_error': 1, 'coordinate_error': 2}",
-      "seconds": 0.144
+      "seconds": 0.154
     },
     {
       "step": "4/6/9 online: import synthetic datasets",
       "ok": true,
       "detail": "{\"synthetic_organizations.csv\": 8, \"synthetic_people.csv\": 33, \"synthetic_contacts.csv\": 5, \"synthetic_transactions.csv\": 60}",
-      "seconds": 1.049
+      "seconds": 0.941
     },
     {
       "step": "4/6/9 online: entity resolution",
       "ok": true,
       "detail": "3 candidates; strong=2",
-      "seconds": 0.235
+      "seconds": 0.236
     },
     {
       "step": "4/6/9 online: review & merge",
       "ok": true,
-      "detail": "merge mrg_ec1dbc44ce8e47f9bca74244a2d0a630",
-      "seconds": 0.025
+      "detail": "merge mrg_e2b9816d4cac423792d34a60de903964",
+      "seconds": 0.022
     },
     {
       "step": "4/6/9 online: reproducible analysis",
       "ok": true,
-      "detail": "outliers=2 sha=6c413ae68dff reproduced identical=True",
-      "seconds": 0.081
+      "detail": "outliers=2 sha=580dfffb10e2 reproduced identical=True",
+      "seconds": 0.073
     },
     {
       "step": "7 explore graph",
       "ok": true,
       "detail": "Northwind Harbor Logistics Ltd: 4 works_for edges; top=Northwind Harbor Logistics Ltd",
-      "seconds": 0.047
+      "seconds": 0.045
     },
     {
       "step": "8 inspect source evidence",
       "ok": "13967fe40789a6f9f580194afd5ba5a132547d3f4454f3713d6166b4cf28a54d",
-      "detail": "record rec_8f738057432241d7b24661d755dec7e9 from people v1 file sha256 13967fe40789",
-      "seconds": 0.06
+      "detail": "record rec_216dc03cd9ee4cd58b185de59887006c from people v1 file sha256 13967fe40789",
+      "seconds": 0.064
     },
     {
       "step": "10 report export",
       "ok": true,
-      "detail": "51970 bytes, manifest lists 2 dataset versions",
-      "seconds": 0.213
+      "detail": "51979 bytes, manifest lists 2 dataset versions",
+      "seconds": 0.222
     },
     {
       "step": "11 restart",
       "ok": true,
       "detail": "new server process started",
-      "seconds": 2.284
+      "seconds": 2.26
     },
     {
       "step": "12 persistence & audit",
       "ok": true,
       "detail": "counts identical=True; audit chain valid over 32 events",
-      "seconds": 0.141
+      "seconds": 0.167
     },
     {
       "step": "backup + verify",
       "ok": true,
-      "detail": "atlas-backup-20261027T194335Z.tar.gz 198990 bytes",
-      "seconds": 0.095
+      "detail": "atlas-backup-20261028T122545Z.tar.gz 199254 bytes",
+      "seconds": 0.134
     },
     {
       "step": "13 network disabled",
@@ -97,38 +97,38 @@
     {
       "step": "14 offline: server start + login + new workspace",
       "ok": true,
-      "detail": "http://127.0.0.1:37073",
-      "seconds": 2.109
+      "detail": "http://127.0.0.1:38275",
+      "seconds": 2.541
     },
     {
       "step": "14 offline: import synthetic datasets",
       "ok": true,
       "detail": "{\"synthetic_organizations.csv\": 8, \"synthetic_people.csv\": 33, \"synthetic_contacts.csv\": 5, \"synthetic_transactions.csv\": 60}",
-      "seconds": 0.958
+      "seconds": 1.009
     },
     {
       "step": "14 offline: entity resolution",
       "ok": true,
       "detail": "3 candidates; strong=2",
-      "seconds": 0.237
+      "seconds": 0.236
     },
     {
       "step": "14 offline: review & merge",
       "ok": true,
-      "detail": "merge mrg_138ca6a9b26a494f9973a950ca118128",
-      "seconds": 0.023
+      "detail": "merge mrg_ae4b0366b16c47239a5441e0e9742f26",
+      "seconds": 0.021
     },
     {
       "step": "14 offline: reproducible analysis",
       "ok": true,
-      "detail": "outliers=2 sha=9616a53aa3d5 reproduced identical=True",
-      "seconds": 0.065
+      "detail": "outliers=2 sha=8e842c40110f reproduced identical=True",
+      "seconds": 0.072
     },
     {
       "step": "14 offline: documents, assistant, PDF report, offline-check",
       "ok": true,
-      "detail": "assistant=extractive; pdf=45169B; offline checks ok=True",
-      "seconds": 0.415
+      "detail": "assistant=extractive; pdf=45174B; offline checks ok=True",
+      "seconds": 0.407
     }
   ],
   "all_passed": true

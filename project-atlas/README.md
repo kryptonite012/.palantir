@@ -55,6 +55,11 @@ the completed / partial / deferred matrix).
   (optionally AES-256-GCM encrypted) backups with verification and restore; in-process outbound network guard
   and an offline verification report.
 
+- **Usability (0.2)** — one-click synthetic demo workspace, `Ctrl/⌘ K` command palette, saved views, entity
+  watchlists with in-app notifications, activity feed and insight dashboard, *explain connection* between two
+  entities with per-hop evidence, plain-language quality explanations, retention enforcement, encrypted scheduled
+  backups, project archive/delete.
+
 ## Quick start (development checkout)
 
 ```bash
@@ -67,8 +72,8 @@ atlas serve                                  # http://127.0.0.1:8000
 
 On first start the server writes a one-time setup token to `atlas-workspace/setup-token.txt`;
 enter it in the browser to create the initial System Administrator (or run `atlas create-admin <name>`).
-Then create a project and import the synthetic data in `sample-data/` (walkthrough in
-[docs/user-guide.md](docs/user-guide.md)).
+Then choose *Projects → Create demo workspace* to explore the synthetic Northwind Harbor data, or create a
+project and import your own (walkthrough in [docs/user-guide.md](docs/user-guide.md)).
 
 Offline / air-gapped installation from a release bundle, LAN deployment and the desktop build are
 described in [docs/installation.md](docs/installation.md) and [docs/offline-operation.md](docs/offline-operation.md).
@@ -76,7 +81,7 @@ described in [docs/installation.md](docs/installation.md) and [docs/offline-oper
 ## Tests
 
 ```bash
-cd backend && python -m pytest                       # 97 API/unit/security tests
+cd backend && python -m pytest                       # 111 API/unit/security tests
 cd frontend && npm test                              # unit tests (Vitest)
 python scripts/acceptance_scenario.py                # 14-step release scenario incl. a network-isolated phase (Linux)
 ATLAS_URL=http://127.0.0.1:8000 ATLAS_SETUP_TOKEN_FILE=atlas-workspace/setup-token.txt node frontend/tests/e2e/smoke.mjs   # UI E2E

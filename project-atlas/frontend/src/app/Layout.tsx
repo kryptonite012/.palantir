@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
 import { useAtlas } from "./store";
 import { Logo } from "../components/Logo";
-import { Badge, Modal } from "../components/ui";
+import { Badge, Modal, fmtTime } from "../components/ui";
+import { CommandPalette } from "../components/CommandPalette";
+import { FeedbackHost, toast } from "../components/feedback";
 import type { Job, Project } from "../types/api";
 
 export const NAV: { to: string; label: string; icon: string; key?: string }[] = [
@@ -41,7 +43,25 @@ function TopBar() {
     enabled: !!projectId, refetchInterval: (query) => ((query.state.data ?? []).some((j) => ["running", "queued"].includes(j.status)) ? 1500 : 10_000),
   });
   const running = (jobs.data ?? []).filter((j) => j.status === "running" || j.status === "queued");
-  const failed = (jobs.data ?? []).filter((j) => j.status === "failed");
+  const notes = useQuery<any>({ queryKey: ["notifications"], queryFn: () => api("/api/notifications", { params: { limit: 25 } }),
+    refetchInterval: running.length ? 3000 : 15_000 });
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    // Toast newly arrived notifications (not the backlog present at first load).
+    if (!notes.data) return;
+    const items: any[] = notes.data.items;
+    if (seen.current === null) { seen.current = new Set(items.map((n) => n.id)); return; }
+    for (const n of items) {
+      if (!seen.current.has(n.id) && !n.read) {
+        const text = `${n.title}${n.body ? ` — ${n.body}` : ""}`;
+        if (n.title.includes("failed")) toast.error(text);
+        else toast.info(text, n.link ? { label: "Open", run: () => nav(n.link) } : undefined);
+      }
+      seen.current.add(n.id);
+    }
+    if (items.some((n) => n.kind === "job")) qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === projectId });
+  }, [notes.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const markRead = async (ids?: string[]) => { await api("/api/notifications/read", { method: "POST", body: ids }); notes.refetch(); };
 
   useEffect(() => {
     if (!projectId && projects.data?.length) setProject(projects.data[0].id);
@@ -76,8 +96,13 @@ function TopBar() {
         {(projects.data ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
       <form className="flex-1" onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/search?q=${encodeURIComponent(q.trim())}`); }}>
-        <input ref={searchRef} className="input max-w-xl" placeholder='Search everything…  ("/" to focus)' value={q}
-          onChange={(e) => setQ(e.target.value)} aria-label="Global search" />
+        <div className="flex max-w-xl items-center gap-2">
+          <input ref={searchRef} className="input" placeholder='Search everything…  ("/" to focus)' value={q}
+            onChange={(e) => setQ(e.target.value)} aria-label="Global search" />
+          <button type="button" className="btn whitespace-nowrap" title="Command palette" onClick={() => window.dispatchEvent(new Event("atlas:palette"))}>
+            <span className="kbd">Ctrl K</span>
+          </button>
+        </div>
       </form>
       <div className="relative">
         <button className="btn btn-ghost" onClick={() => setMenu(menu === "jobs" ? null : "jobs")} aria-label="Jobs">
@@ -107,12 +132,27 @@ function TopBar() {
       </div>
       <div className="relative">
         <button className="btn btn-ghost" aria-label="Notifications" onClick={() => setMenu(menu === "notes" ? null : "notes")}>
-          Alerts {failed.length > 0 && <Badge tone="danger">{failed.length}</Badge>}
+          Alerts {notes.data?.unread > 0 && <Badge tone="danger">{notes.data.unread}</Badge>}
         </button>
         {menu === "notes" && (
-          <div className="card absolute right-0 top-9 z-40 w-80 p-2 text-xs shadow-xl">
-            {failed.length === 0 ? <p className="p-2 text-muted">No failed jobs.</p> :
-              failed.map((j) => <p key={j.id} className="border-b border-line/50 py-1"><b>{j.kind}</b> failed: {j.error}</p>)}
+          <div className="card absolute right-0 top-9 z-40 w-[26rem] p-2 text-xs shadow-xl">
+            <div className="mb-1 flex items-center justify-between px-1"><b>Notifications</b>
+              {notes.data?.unread > 0 && <button className="btn btn-ghost text-xxs" onClick={() => markRead()}>Mark all read</button>}</div>
+            {(notes.data?.items ?? []).length === 0 && <p className="p-2 text-muted">Nothing yet. Watch entities to hear about new data on them.</p>}
+            <div className="max-h-96 overflow-y-auto">
+              {(notes.data?.items ?? []).map((n: any) => (
+                <button key={n.id} className={`block w-full rounded px-2 py-1.5 text-left hover:bg-raised ${n.read ? "opacity-60" : ""}`}
+                  onClick={() => { markRead([n.id]); setMenu(null); if (n.link) nav(n.link); }}>
+                  <span className="flex items-center gap-1.5">
+                    {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                    <Badge tone={{ job: n.title.includes("failed") ? "danger" : "ok", watch: "accent", retention: "warn" }[n.kind as string] ?? "neutral"}>{n.kind}</Badge>
+                    <b className="truncate">{n.title}</b>
+                  </span>
+                  {n.body && <span className="block truncate text-muted">{n.body}</span>}
+                  <span className="block text-[10px] text-muted">{fmtTime(n.created_at)}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -149,6 +189,7 @@ function Tabs() {
     const item = NAV.find((n) => (n.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(n.to)));
     const sub = loc.pathname.split("/").length > 2 ? " · detail" : "";
     if (item) openTab(loc.pathname + loc.search, item.label + sub);
+    document.title = item ? `${item.label}${sub} — Project Atlas` : "Project Atlas";
   }, [loc.pathname, loc.search, openTab]);
   if (tabs.length < 2) return null;
   return (
@@ -195,6 +236,7 @@ function Shortcuts() {
       <ul className="grid grid-cols-2 gap-1 text-xs">
         <li><span className="kbd">/</span> focus search</li>
         <li><span className="kbd">?</span> this help</li>
+        <li><span className="kbd">Ctrl</span> <span className="kbd">K</span> command palette</li>
         {NAV.map((n) => <li key={n.to}><span className="kbd">g</span> <span className="kbd">{n.key}</span> {n.label}</li>)}
       </ul>
     </Modal>
@@ -229,6 +271,8 @@ export function Layout() {
         </main>
       </div>
       <Shortcuts />
+      <CommandPalette nav={NAV} />
+      <FeedbackHost />
     </div>
   );
 }

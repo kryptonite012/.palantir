@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { api, pp } from "../../services/api";
-import { useCan, usePQuery, useProjectId } from "../../app/hooks";
+import { useAI, useCan, usePQuery, useProjectId } from "../../app/hooks";
+import { AskData } from "./AskData";
 import { Badge, Card, ErrorBox, Field, Json, Notice, PageHeader, Spinner, Table, Tabs, fmtTime } from "../../components/ui";
 import { Chart } from "../../components/Chart";
 import type { AnalysisRun, Dataset } from "../../types/api";
@@ -16,14 +17,16 @@ const KINDS: Record<string, { label: string; params: ("field" | "fields" | "time
 };
 
 export function AnalyticsPage() {
-  const [tab, setTab] = useState<"run" | "history" | "sql">("run");
+  const [tab, setTab] = useState<"run" | "history" | "sql" | "ask">("run");
+  const ai = useAI();
   return (
     <div className="space-y-3">
       <PageHeader title="Analytics" subtitle="Every run records dataset versions, content hashes, parameters, algorithm version and duration, and can be reproduced." />
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: "run", label: "New analysis" }, { id: "history", label: "Runs & reproducibility" }, { id: "sql", label: "SQL console" }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: "run", label: "New analysis" }, { id: "history", label: "Runs & reproducibility" }, { id: "sql", label: "SQL console" }, ...(ai ? [{ id: "ask" as const, label: "Ask your data (AI)" }] : [])]} />
       {tab === "run" && <RunAnalysis />}
       {tab === "history" && <History />}
       {tab === "sql" && <SqlConsole />}
+      {tab === "ask" && <AskData />}
     </div>
   );
 }

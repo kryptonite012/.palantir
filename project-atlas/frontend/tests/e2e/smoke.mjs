@@ -166,6 +166,53 @@ const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("b
 console.log(`  downloaded ${await dl.suggestedFilename()}`);
 await page.screenshot({ path: `${SHOTS}/22-reports.png`, fullPage: true });
 
+step("demo workspace from the Projects page");
+await page.goto(`${BASE}/projects?demo=1`);
+await page.getByRole("button", { name: "Create demo workspace" }).click();
+await page.getByText("Most connected entities").waitFor({ timeout: 60000 });
+await page.getByText("Recent activity").waitFor();
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${SHOTS}/23-demo-home.png`, fullPage: true });
+
+step("command palette jumps to an entity");
+await page.keyboard.press("Control+k");
+await page.getByRole("textbox", { name: "Command" }).fill("Mercer");
+await page.getByRole("option", { name: /Jonathan Mercer/ }).first().waitFor();
+await page.screenshot({ path: `${SHOTS}/24-command-palette.png` });
+await page.keyboard.press("Enter");
+await page.waitForURL(/\/entities\/ent_/);
+
+step("watch the entity");
+await page.getByRole("button", { name: "☆ Watch" }).click();
+await page.getByRole("button", { name: "★ Watching" }).waitFor();
+await page.getByText(/Watching — you'll be alerted/).waitFor();
+
+step("explain a connection in the graph");
+const demoPid = (await api("GET", "/api/projects")).json.find((p) => p.name.startsWith("Northwind Harbor (synthetic demo)")).id;
+const ents = async (q) => (await api("GET", `/api/projects/${demoPid}/entities?q=${encodeURIComponent(q)}`)).json.entities[0].id;
+const a = await ents("Northwind Harbor Logistics"), b = await ents("Bluefjord Freight");
+const ex = await api("GET", `/api/projects/${demoPid}/graph/explain?source=${a}&target=${b}`);
+if (!ex.json.found) throw new Error("explain found no path");
+await page.goto(`${BASE}/graph`);
+await page.waitForTimeout(1800);
+await page.evaluate(([a, b]) => { /* select two nodes via the cytoscape instance exposed for tests */
+  const cy = window.__atlasCy; cy.$id(a).select(); cy.$id(b).select(); }, [a, b]);
+await page.getByRole("button", { name: "Explain connection" }).click();
+await page.getByText(/How .* connects to/).waitFor();
+await page.screenshot({ path: `${SHOTS}/25-explain-connection.png` });
+
+step("quality explanations on a dataset");
+const tx = (await api("GET", `/api/projects/${demoPid}/datasets`)).json.find((d) => d.name === "transactions");
+await page.goto(`${BASE}/catalog/${tx.id}`);
+await page.getByRole("tab", { name: "Quality" }).click();
+await page.getByText("What these issues mean").waitFor();
+await page.screenshot({ path: `${SHOTS}/26-quality-explained.png`, fullPage: true });
+
+step("notifications panel");
+await page.getByRole("button", { name: "Notifications" }).click();
+await page.getByText("Demo workspace finished").first().waitFor();
+await page.screenshot({ path: `${SHOTS}/27-notifications.png` });
+
 await browser.close();
 if (errors.length) {
   console.error("Browser errors:\n" + errors.join("\n"));

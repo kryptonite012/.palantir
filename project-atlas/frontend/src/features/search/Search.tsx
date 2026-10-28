@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { askText, toast } from "../../components/feedback";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../services/api";
@@ -42,8 +43,8 @@ export function SearchPage() {
     else if (r.doc_type === "report") nav(`/reports?id=${r.ref_id}`);
   };
   const save = async () => {
-    const name = prompt("Name for this saved search:", q);
-    if (name) { await api("/api/search/saved", { body: { project_id: pid, name, query: q, filters: { types } } }); saved.refetch(); }
+    const name = await askText({ title: "Save search", label: "Name", defaultValue: q, confirmText: "Save" });
+    if (name) { await api("/api/search/saved", { body: { project_id: pid, name, query: q, filters: { types } } }); saved.refetch(); toast.ok("Search saved"); }
   };
 
   return (

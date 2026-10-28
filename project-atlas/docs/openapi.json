@@ -3,7 +3,7 @@
  "info": {
   "title": "atlas-api",
   "description": "Project Atlas \u2014 Offline Intelligence and Data Operations Platform. Navigate the Complexity of Data.",
-  "version": "0.1.0"
+  "version": "0.2.0"
  },
  "paths": {
   "/api/auth/setup-status": {
@@ -952,6 +952,67 @@
     }
    }
   },
+  "/api/admin/retention": {
+   "get": {
+    "tags": [
+     "administration"
+    ],
+    "summary": "Retention Review",
+    "operationId": "retention_review_api_admin_retention_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/retention/apply": {
+   "post": {
+    "tags": [
+     "administration"
+    ],
+    "summary": "Retention Apply",
+    "description": "Purge superseded dataset versions past retention and notify owners about expired current versions.",
+    "operationId": "retention_apply_api_admin_retention_apply_post",
+    "parameters": [
+     {
+      "name": "confirm",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Confirm"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/projects": {
    "get": {
     "tags": [
@@ -1023,6 +1084,54 @@
       "schema": {
        "type": "string",
        "title": "Project Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Delete Project",
+    "description": "Permanently delete a project and all of its data. System administrators who are project admins only.",
+    "operationId": "delete_project_api_projects__project_id__delete",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     },
+     {
+      "name": "confirm_name",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Confirm Name"
       }
      }
     ],
@@ -3515,6 +3624,86 @@
       }
      }
     },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/graph/explain": {
+   "get": {
+    "tags": [
+     "entities",
+     "graph"
+    ],
+    "summary": "Explain Connection",
+    "description": "How are two entities connected? Shortest paths with the relationships and source evidence behind every hop.",
+    "operationId": "explain_connection_api_projects__project_id__graph_explain_get",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     },
+     {
+      "name": "source",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Source"
+      }
+     },
+     {
+      "name": "target",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Target"
+      }
+     },
+     {
+      "name": "max_paths",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 3,
+       "title": "Max Paths"
+      }
+     },
+     {
+      "name": "include_unverified",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Include Unverified"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "description": "Successful Response",
@@ -7355,6 +7544,266 @@
     }
    }
   },
+  "/api/projects/{project_id}/ai/ask-data": {
+   "post": {
+    "tags": [
+     "ai"
+    ],
+    "summary": "Ask Data",
+    "description": "Natural-language data exploration in two explicit steps.\n\n1. Without ``execute``: the local model drafts SQL (validated, not run).\n2. With ``execute`` and the reviewed ``sql``: the SQL runs in the read-only sandbox and the model\n   describes the result rows. The narrative is labelled as model output; the table is the evidence.",
+    "operationId": "ask_data_api_projects__project_id__ai_ask_data_post",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AskData"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/ai/schema-mapping": {
+   "post": {
+    "tags": [
+     "ai"
+    ],
+    "summary": "Schema Mapping",
+    "operationId": "schema_mapping_api_projects__project_id__ai_schema_mapping_post",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FileRef"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/datasets/{dataset_id}/quality/explain": {
+   "get": {
+    "tags": [
+     "ai"
+    ],
+    "summary": "Quality Explain",
+    "description": "Plain-language explanation of a dataset version's quality issues; optional local-model summary.",
+    "operationId": "quality_explain_api_projects__project_id__datasets__dataset_id__quality_explain_get",
+    "parameters": [
+     {
+      "name": "dataset_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Dataset Id"
+      }
+     },
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     },
+     {
+      "name": "use_model",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Use Model"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/ai/investigations/{inv_id}/summary": {
+   "post": {
+    "tags": [
+     "ai"
+    ],
+    "summary": "Investigation Summary",
+    "operationId": "investigation_summary_api_projects__project_id__ai_investigations__inv_id__summary_post",
+    "parameters": [
+     {
+      "name": "inv_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Inv Id"
+      }
+     },
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/ai/reports/{report_id}/draft": {
+   "post": {
+    "tags": [
+     "ai"
+    ],
+    "summary": "Report Draft",
+    "description": "Draft an executive summary from the report's reviewed findings and recorded analyses (never auto-inserted).",
+    "operationId": "report_draft_api_projects__project_id__ai_reports__report_id__draft_post",
+    "parameters": [
+     {
+      "name": "report_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Report Id"
+      }
+     },
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/system/status": {
    "get": {
     "tags": [
@@ -7388,6 +7837,547 @@
       "content": {
        "application/json": {
         "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/views": {
+   "get": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "List Views",
+    "operationId": "list_views_api_views_get",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Save View",
+    "operationId": "save_view_api_views_post",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ViewBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/views/{view_id}": {
+   "delete": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Delete View",
+    "operationId": "delete_view_api_views__view_id__delete",
+    "parameters": [
+     {
+      "name": "view_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "View Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/watches": {
+   "get": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "List Watches",
+    "operationId": "list_watches_api_projects__project_id__watches_get",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/watches/{entity_id}": {
+   "put": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Watch",
+    "operationId": "watch_api_projects__project_id__watches__entity_id__put",
+    "parameters": [
+     {
+      "name": "entity_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Entity Id"
+      }
+     },
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Unwatch",
+    "operationId": "unwatch_api_projects__project_id__watches__entity_id__delete",
+    "parameters": [
+     {
+      "name": "entity_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Entity Id"
+      }
+     },
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/notifications": {
+   "get": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Notifications",
+    "operationId": "notifications_api_notifications_get",
+    "parameters": [
+     {
+      "name": "unread_only",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Unread Only"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 30,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/notifications/read": {
+   "post": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Mark Read",
+    "operationId": "mark_read_api_notifications_read_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "items": {
+           "type": "string"
+          },
+          "type": "array"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Ids"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/activity": {
+   "get": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Activity",
+    "operationId": "activity_api_projects__project_id__activity_get",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 30,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/insights": {
+   "get": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Insights",
+    "description": "Dashboard breakdowns, all computed from the project's current data (empty lists when there is none).",
+    "operationId": "insights_api_projects__project_id__insights_get",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/demo": {
+   "post": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Create Demo",
+    "description": "Create a project and load the SYNTHETIC Northwind Harbor dataset through the normal pipelines.",
+    "operationId": "create_demo_api_projects_demo_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DemoBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{project_id}/archive": {
+   "patch": {
+    "tags": [
+     "workspace"
+    ],
+    "summary": "Archive",
+    "operationId": "archive_api_projects__project_id__archive_patch",
+    "parameters": [
+     {
+      "name": "project_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Project Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ArchiveBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
        }
       }
      }
@@ -7462,6 +8452,19 @@
     ],
     "title": "AnalysisBody"
    },
+   "ArchiveBody": {
+    "properties": {
+     "archived": {
+      "type": "boolean",
+      "title": "Archived"
+     }
+    },
+    "type": "object",
+    "required": [
+     "archived"
+    ],
+    "title": "ArchiveBody"
+   },
    "AskBody": {
     "properties": {
      "question": {
@@ -7495,6 +8498,38 @@
      "question"
     ],
     "title": "AskBody"
+   },
+   "AskData": {
+    "properties": {
+     "question": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 3,
+      "title": "Question"
+     },
+     "sql": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 20000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sql"
+     },
+     "execute": {
+      "type": "boolean",
+      "title": "Execute",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "question"
+    ],
+    "title": "AskData"
    },
    "AskSQL": {
     "properties": {
@@ -7639,6 +8674,19 @@
     },
     "type": "object",
     "title": "DatasetPatch"
+   },
+   "DemoBody": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Name",
+      "default": "Northwind Harbor (synthetic demo)"
+     }
+    },
+    "type": "object",
+    "title": "DemoBody"
    },
    "EntityCreate": {
     "properties": {
@@ -7804,6 +8852,19 @@
      "geometry"
     ],
     "title": "FeatureCreate"
+   },
+   "FileRef": {
+    "properties": {
+     "file_id": {
+      "type": "string",
+      "title": "File Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "file_id"
+    ],
+    "title": "FileRef"
    },
    "FindingBody": {
     "properties": {
@@ -8815,6 +9876,40 @@
      "type"
     ],
     "title": "ValidationError"
+   },
+   "ViewBody": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "path": {
+      "type": "string",
+      "maxLength": 1024,
+      "minLength": 1,
+      "pattern": "^/[^\\s]*$",
+      "title": "Path"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "path"
+    ],
+    "title": "ViewBody"
    },
    "WorkflowBody": {
     "properties": {

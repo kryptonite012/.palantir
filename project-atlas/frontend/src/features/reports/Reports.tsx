@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, download, pp } from "../../services/api";
-import { useCan, usePQuery, useProjectId } from "../../app/hooks";
-import { Badge, Card, ErrorBox, Field, Json, Notice, PageHeader, Table, fmtBytes, fmtTime } from "../../components/ui";
+import { useAI, useCan, usePQuery, useProjectId } from "../../app/hooks";
+import { toast } from "../../components/feedback";
+import { Badge, Card, ErrorBox, Field, Json, Modal, Notice, PageHeader, Table, fmtBytes, fmtTime } from "../../components/ui";
 import { Chart } from "../../components/Chart";
 
 type Section = Record<string, any> & { type: string };
@@ -30,6 +31,8 @@ export function ReportsPage() {
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const invParam = params.get("investigation");
+  const ai = useAI();
+  const [draft, setDraft] = useState<any>(null);
 
   useEffect(() => {
     if (invParam && !id) setSections([...TEMPLATE.slice(0, 2), { type: "findings", investigation_id: invParam, title: "Findings" }, { type: "evidence", investigation_id: invParam, title: "Evidence register" }, TEMPLATE[2]]);
@@ -62,9 +65,26 @@ export function ReportsPage() {
             <option value="">New report</option>{(reports.data ?? []).map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}</select>
           {canWrite && <button className="btn" onClick={save} disabled={busy}>Save</button>}
           <button className="btn" onClick={doPreview} disabled={busy || !canWrite}>Preview</button>
+          {ai && id && <button className="btn" disabled={busy} onClick={() => call(async () => { await save(); setDraft(await api(pp(pid, `/ai/reports/${id}/draft`), { method: "POST" })); })}>Draft summary (AI)</button>}
           {canExport && id && ["pdf", "html", "xlsx", "csv", "json"].map((f) => <button key={f} className="btn" disabled={busy} onClick={() => doExport(f)}>{f.toUpperCase()}</button>)}
         </>} />
       <ErrorBox error={err} />
+      <Modal open={!!draft} title="Model draft — review before use" onClose={() => setDraft(null)} wide>
+        {draft && <div className="space-y-2 text-xs">
+          <Badge tone="hypo">{draft.label}</Badge> <span className="text-muted">{draft.model}</span>
+          {draft.invalid_citations?.length > 0 && <Notice tone="warn">Cites facts that do not exist: {draft.invalid_citations.join(", ")}. Edit before use.</Notice>}
+          <p className="whitespace-pre-line rounded border border-line bg-bg p-2">{draft.draft}</p>
+          <details><summary className="cursor-pointer text-muted">Facts given to the model ({draft.facts.length})</summary>
+            {draft.facts.map((f: string, i: number) => <p key={i} className="text-xxs text-muted">[F{i + 1}] {f}</p>)}</details>
+          <button className="btn btn-primary" onClick={() => {
+            const i = sections.findIndex((x) => x.type === "summary");
+            const text = `${draft.draft}\n\n(Drafted with local model ${draft.model}; reviewed by the author.)`;
+            setSections(i >= 0 ? sections.map((x, j) => (j === i ? { ...x, body: text } : x)) : [{ type: "summary", title: "Executive summary", body: text }, ...sections]);
+            setDraft(null);
+            toast.info("Draft inserted into the executive summary — edit it, then save");
+          }}>Insert into executive summary</button>
+        </div>}
+      </Modal>
       <div className="grid gap-3 xl:grid-cols-2">
         <Card title={<input className="input w-80 text-sm font-semibold" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Report title" />}>
           <div className="space-y-2">

@@ -18,6 +18,7 @@ export interface Project {
   role: string | null;
   role_label?: string;
   permissions?: string[];
+  archived?: boolean;
 }
 
 export interface Job {

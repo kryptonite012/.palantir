@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { askText, toast } from "../../components/feedback";
 import { api, pp, waitForJob } from "../../services/api";
 import { useCan, usePQuery, useProjectId } from "../../app/hooks";
 import { AssertionBadge, Badge, Card, Empty, ErrorBox, Field, Modal, Notice, PageHeader, Spinner, StatusBadge, Table, Tabs, fmtNum, fmtTime } from "../../components/ui";
@@ -8,7 +9,8 @@ import type { EntityView } from "../../types/api";
 
 export function EntityExplorer() {
   const nav = useNavigate();
-  const [tab, setTab] = useState<"entities" | "review" | "merges">("entities");
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<"entities" | "review" | "merges">((params.get("tab") as "review") ?? "entities");
   const [type, setType] = useState("");
   const [q, setQ] = useState("");
   const [offset, setOffset] = useState(0);
@@ -66,9 +68,13 @@ function MatchReview() {
     } catch (e) { setErr(e); }
   };
   const review = async (c: any, decision: "accept" | "reject", survivor?: string) => {
-    const note = prompt(decision === "accept" ? "Reason for accepting this match (recorded in audit):" : "Reason for rejecting:") ?? "";
+    const note = await askText({ title: decision === "accept" ? "Merge these entities?" : "Mark as different entities?",
+      label: "Reason (recorded in the audit log)", multiline: true, confirmText: decision === "accept" ? "Merge" : "Reject" });
+    if (note === null) return;
     try {
-      await api(pp(pid, `/match-candidates/${c.id}/review`), { body: { decision, note, survivor_id: survivor } });
+      const r = await api(pp(pid, `/match-candidates/${c.id}/review`), { body: { decision, note, survivor_id: survivor } });
+      if (r.merge_id) toast.ok("Entities merged", { label: "Undo", run: () => api(pp(pid, `/merges/${r.merge_id}/revert`), { method: "POST" }).then(() => { cands.refetch(); toast.info("Merge reverted"); }) });
+      else toast.info("Marked as different entities");
       cands.refetch();
       qc.invalidateQueries({ queryKey: [pid, "entities"] });
     } catch (e) { setErr(e); }
@@ -140,6 +146,15 @@ export function EntityDetail() {
   const [targetQ, setTargetQ] = useState("");
   const targets = usePQuery<any>(["entities-pick", targetQ], "/entities", { q: targetQ, limit: 10 }, relOpen && targetQ.length > 1);
   const [err, setErr] = useState<unknown>(null);
+  const watches = useQuery<any[]>({ queryKey: ["watches", pid], queryFn: () => api(pp(pid, "/watches")), enabled: !!pid });
+  const watching = (watches.data ?? []).some((w) => w.entity_id === entityId);
+  const toggleWatch = async () => {
+    try {
+      await api(pp(pid, `/watches/${entityId}`), { method: watching ? "DELETE" : "PUT" });
+      watches.refetch();
+      toast.ok(watching ? "Stopped watching" : "Watching — you'll be alerted when new data mentions this entity");
+    } catch (x) { setErr(x); }
+  };
   if (e.isLoading) return <Spinner />;
   if (!e.data) return <ErrorBox error={e.error} />;
   const d = e.data;
@@ -148,12 +163,14 @@ export function EntityDetail() {
       await api(pp(pid, "/relationships"), { body: { source_entity_id: d.id, target_entity_id: rel.target, rel_type: rel.rel_type, justification: rel.justification } });
       setRelOpen(false);
       e.refetch();
+      toast.ok("Relationship recorded as a manual assertion");
     } catch (x) { setErr(x); }
   };
   return (
     <div className="space-y-3">
       <PageHeader title={d.display_name} subtitle={<><Badge>{d.entity_type}</Badge> <code className="font-mono text-xxs">{d.id}</code> {d.status !== "active" && <Badge tone="warn">{d.status} → {d.merged_into_id}</Badge>}</>}
         actions={<>
+          <button className={`btn ${watching ? "btn-primary" : ""}`} onClick={toggleWatch} aria-pressed={watching}>{watching ? "★ Watching" : "☆ Watch"}</button>
           <button className="btn" onClick={() => nav(`/graph?center=${d.id}`)}>Open in graph</button>
           <button className="btn" onClick={() => nav(`/timeline?entity=${d.id}`)}>Timeline</button>
           {canGraph && <button className="btn btn-primary" onClick={() => setRelOpen(true)}>Assert relationship</button>}

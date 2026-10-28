@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { askText } from "../../components/feedback";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, pp } from "../../services/api";
-import { useCan, usePQuery, useProjectId } from "../../app/hooks";
-import { Badge, Card, Empty, ErrorBox, Field, Modal, PageHeader, Spinner, StatusBadge, Table, fmtTime } from "../../components/ui";
+import { useAI, useCan, usePQuery, useProjectId } from "../../app/hooks";
+import { Badge, Card, Empty, ErrorBox, Field, Modal, Notice, PageHeader, Spinner, StatusBadge, Table, fmtTime } from "../../components/ui";
 
 export function InvestigationsPage() {
   const pid = useProjectId();
   const nav = useNavigate();
   const list = usePQuery<any[]>(["investigations"], "/investigations");
   const canCreate = useCan("investigation.create");
-  const [open, setOpen] = useState(false);
+  const [params] = useSearchParams();
+  const [open, setOpen] = useState(params.get("new") === "1");
   const [form, setForm] = useState({ title: "", objective: "", scope: "", classification: "internal" });
   const [err, setErr] = useState<unknown>(null);
   const create = async () => {
@@ -59,6 +61,8 @@ export function InvestigationDetail() {
   const [f, setF] = useState({ title: "", statement: "", basis: "analyst_assessment" });
   const [note, setNote] = useState("");
   const canReview = useCan("finding.review");
+  const ai = useAI();
+  const [summary, setSummary] = useState<any>(null);
   if (inv.isLoading) return <Spinner />;
   if (!inv.data) return <ErrorBox error={inv.error} />;
   const d = inv.data;
@@ -67,8 +71,19 @@ export function InvestigationDetail() {
   return (
     <div className="space-y-3">
       <PageHeader title={d.title} subtitle={<><StatusBadge status={d.status} /> <Badge>{d.classification}</Badge> {d.objective}</>}
-        actions={<button className="btn" onClick={() => nav(`/reports?investigation=${d.id}`)}>Build report</button>} />
+        actions={<>
+          {ai && <button className="btn" onClick={() => call(async () => setSummary(await api(pp(pid, `/ai/investigations/${d.id}/summary`), { method: "POST" })))}>Summarise with local AI</button>}
+          <button className="btn" onClick={() => nav(`/reports?investigation=${d.id}`)}>Build report</button></>} />
       <ErrorBox error={err} />
+      {summary && (
+        <Card title={<span className="flex items-center gap-2">Summary <Badge tone="hypo">{summary.label}</Badge> <span className="font-normal text-muted">{summary.model}</span></span>}
+          actions={<button className="btn btn-ghost" onClick={() => setSummary(null)}>✕</button>}>
+          {summary.warning && <Notice tone="warn">{summary.warning}</Notice>}
+          <p className="whitespace-pre-line text-xs">{summary.summary}</p>
+          {Object.entries(summary.citations).map(([k, c]: [string, any]) => <p key={k} className="mt-1 text-xxs text-muted"><b>[{k}]</b> {c.excerpt}</p>)}
+          <p className="mt-2 text-[10px] text-muted">Generated from this investigation's findings and evidence only. Findings keep their own review status; this summary is not a finding.</p>
+        </Card>
+      )}
       <div className="grid gap-3 xl:grid-cols-3">
         <Card title="Scope & collaborators">
           <p className="mb-2 text-xs">{d.scope || <span className="text-muted">No scope statement.</span>}</p>
@@ -100,9 +115,10 @@ export function InvestigationDetail() {
             <div key={fd.id} className="rounded border border-line p-2 text-xs">
               <div className="flex items-center gap-2"><b>{fd.title}</b><StatusBadge status={fd.status} /><Badge tone={fd.basis === "model_hypothesis" ? "hypo" : "neutral"}>{fd.basis.replaceAll("_", " ")}</Badge>
                 <span className="ml-auto flex gap-1">{NEXT[fd.status].map((s) => (["confirmed_by_reviewer", "disputed", "rejected"].includes(s) && !canReview) ? null :
-                  <button key={s} className="btn" onClick={() => {
-                    const note = prompt(`Note for ${s.replaceAll("_", " ")}:`) ?? "";
-                    const superseded_by_id = s === "superseded" ? prompt("Superseding finding id:") ?? undefined : undefined;
+                  <button key={s} className="btn" onClick={async () => {
+                    const note = await askText({ title: `Move finding to “${s.replaceAll("_", " ")}”`, label: "Note (kept in the finding history)", multiline: true, confirmText: "Update status" });
+                    if (note === null) return;
+                    const superseded_by_id = s === "superseded" ? (await askText({ title: "Superseding finding", label: "Finding id" })) ?? undefined : undefined;
                     call(() => api(pp(pid, `/investigations/${d.id}/findings/${fd.id}/status`), { body: { status: s, note, superseded_by_id } }));
                   }}>{s.replaceAll("_", " ")}</button>)}</span></div>
               <p className="my-1">{fd.statement}</p>

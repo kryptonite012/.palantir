@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "project-atlas"
-version = "0.1.0"
+version = "0.2.0"
 description = "PROJECT ATLAS — Offline Intelligence and Data Operations Platform (atlas-api)"
 readme = "README.md"
 license = "MIT"

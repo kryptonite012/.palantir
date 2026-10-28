@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { askText } from "../../components/feedback";
 import maplibregl, { GeoJSONSource, Map as MlMap } from "maplibre-gl";
 import { api, pp } from "../../services/api";
 import { useAtlas } from "../../app/store";
@@ -104,7 +105,7 @@ export function GeoPage() {
             return next;
           });
         } else if (m === "annotate") {
-          const name = prompt("Annotation label:");
+          const name = await askText({ title: "Add annotation", label: "Label", confirmText: "Add" });
           if (!name) return;
           await api(pp(pid, "/geo/features"), { body: { name, layer: "annotations", geometry: { type: "Point", coordinates: [lng, lat] } } });
           layers.refetch();
@@ -120,7 +121,7 @@ export function GeoPage() {
     try { setResult({ kind: "join", ...(await api(pp(pid, "/geo/join"), { params: { point_layer: join.points, polygon_layer: join.polygons } })) }); } catch (e) { setErr(e); }
   };
   const importLayer = async (f: File) => {
-    const name = prompt("Layer name:", f.name.replace(/\.[^.]+$/, ""));
+    const name = await askText({ title: "Import GeoJSON layer", label: "Layer name", defaultValue: f.name.replace(/\.[^.]+$/, ""), confirmText: "Import" });
     if (!name) return;
     const fd = new FormData();
     fd.append("layer", name);

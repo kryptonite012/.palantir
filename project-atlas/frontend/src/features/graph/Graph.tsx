@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { askText, toast } from "../../components/feedback";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import cytoscape, { Core } from "cytoscape";
 import { api, download, pp } from "../../services/api";
@@ -84,6 +85,7 @@ export function GraphPage() {
     cy.on("tap", "edge", (e) => setEdgeSel(e.target.id()));
     cy.on("dbltap", "node", (e) => setParams({ center: e.target.id() }));
     cyRef.current = cy;
+    (window as unknown as { __atlasCy?: Core }).__atlasCy = cy; // used by the end-to-end test to select nodes
     return () => cy.destroy();
   }, [data, setParams]);
 
@@ -112,11 +114,11 @@ export function GraphPage() {
   };
 
   const saveSnapshot = async () => {
-    const name = prompt("Snapshot name:");
+    const name = await askText({ title: "Save graph snapshot", label: "Name", confirmText: "Save" });
     if (!name || !cyRef.current) return;
     const ids = selected.length ? selected : cyRef.current.nodes().map((n) => n.id());
     const layout = Object.fromEntries(cyRef.current.nodes().map((n) => [n.id(), n.position()]));
-    try { await api(pp(pid, "/graph/snapshots"), { body: { name, node_ids: ids, layout, filters: { relTypes, assertions, unverified, center } } }); snaps.refetch(); } catch (e) { setErr(e); }
+    try { await api(pp(pid, "/graph/snapshots"), { body: { name, node_ids: ids, layout, filters: { relTypes, assertions, unverified, center } } }); snaps.refetch(); toast.ok(`Snapshot “${name}” saved (${ids.length} nodes)`); } catch (e) { setErr(e); }
   };
   const loadSnapshot = async (id: string) => {
     const s = await api(pp(pid, `/graph/snapshots/${id}`));
@@ -128,6 +130,24 @@ export function GraphPage() {
     download(pp(pid, "/graph/export"), `atlas-subgraph.${fmt}`, { method: "POST", body: { name: "export", node_ids: ids }, params: { fmt } }).catch(setErr);
   };
 
+  const [explain, setExplain] = useState<any>(null);
+  const runExplain = async () => {
+    setErr(null);
+    try {
+      if (selected.length !== 2) throw new Error("Select exactly two nodes (shift-click) to explain how they connect");
+      const r = await api(pp(pid, "/graph/explain"), { params: { source: selected[0], target: selected[1], include_unverified: unverified } });
+      setExplain(r);
+      const cy = cyRef.current;
+      if (cy && r.paths[0]) {
+        const path = r.paths[0].nodes.map((n: any) => n.id);
+        cy.elements().removeClass("path faded").addClass("faded");
+        path.forEach((id: string, i: number) => {
+          cy.$id(id).removeClass("faded").addClass("path");
+          if (i) cy.edges().filter((ed) => [ed.source().id(), ed.target().id()].sort().join() === [path[i - 1], id].sort().join()).removeClass("faded").addClass("path");
+        });
+      }
+    } catch (e) { setErr(e); }
+  };
   const nodeDetail = usePQuery<any>(["entity", selected[selected.length - 1]], `/entities/${selected[selected.length - 1]}`, undefined, selected.length > 0);
   const edgeDetail = usePQuery<any>(["rel", edgeSel], `/relationships/${edgeSel}`, undefined, !!edgeSel);
   const relTypeOptions = useMemo(() => (onto.data?.relationship_types ?? []).map((r: any) => r.name), [onto.data]);
@@ -150,6 +170,7 @@ export function GraphPage() {
         <label className="flex items-center gap-1"><input type="checkbox" checked={unverified} onChange={(e) => setUnverified(e.target.checked)} /> include unverified hypotheses</label>
         {center && <button className="btn" onClick={() => load(true, selected[0] ?? center)}>Expand selection</button>}
         <span className="mx-2 h-6 border-l border-line" />
+        <button className="btn btn-primary" onClick={runExplain} title="Select two nodes first">Explain connection</button>
         {["degree_centrality", "pagerank", "betweenness_centrality", "communities", "connected_components", "shortest_path"].map((a) =>
           <button key={a} className="btn" onClick={() => runAlgo(a)}>{a.replace("_", " ")}</button>)}
       </div>
@@ -166,6 +187,33 @@ export function GraphPage() {
           </div>
         } right={
           <div className="space-y-3 p-3 text-xs">
+            {explain && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between"><h3 className="label">How {explain.source.label} connects to {explain.target.label}</h3>
+                  <button className="btn btn-ghost" onClick={() => { setExplain(null); cyRef.current?.elements().removeClass("path faded"); }}>✕</button></div>
+                {!explain.found && <p className="text-muted">No path in the current graph{unverified ? "" : " (unverified hypotheses excluded)"}.</p>}
+                {explain.paths.map((p: any, pi: number) => (
+                  <div key={pi} className="rounded border border-line p-2">
+                    <p className="mb-1 font-medium">Path {pi + 1} · {p.length} hop{p.length === 1 ? "" : "s"} {p.all_observed ? <Badge tone="ok">all observed</Badge> : <Badge tone="warn">includes {p.bases.filter((b: string) => b !== "observed").join(", ")}</Badge>}</p>
+                    <ol className="space-y-1.5">
+                      {p.hops.map((h: any, hi: number) => (
+                        <li key={hi} className="border-l-2 border-accent/40 pl-2">
+                          <span><b>{h.from.label}</b> → <b>{h.to.label}</b></span>
+                          {h.relationships.map((r: any) => (
+                            <div key={r.id} className="mt-0.5 text-[11px]">
+                              <span className="font-mono">{r.rel_type}</span> <AssertionBadge kind={r.assertion} status={r.status} /> <span className="text-muted">{r.evidence_count} evidence</span>
+                              {r.evidence_sample?.restricted ? <p className="text-warn">Evidence in a restricted dataset</p>
+                                : r.evidence_sample?.text && <p className="truncate text-muted" title={r.evidence_sample.text}>{r.evidence_sample.dataset ? `${r.evidence_sample.dataset} row ${r.evidence_sample.row_index + 1}: ` : ""}{r.evidence_sample.text}</p>}
+                            </div>
+                          ))}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ))}
+                <Notice tone="warn">{explain.note}</Notice>
+              </div>
+            )}
             {edgeDetail.data && edgeSel && (
               <div className="space-y-1">
                 <h3 className="label">Relationship</h3>

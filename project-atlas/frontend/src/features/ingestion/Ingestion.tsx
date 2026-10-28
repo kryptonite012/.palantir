@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, pp, waitForJob } from "../../services/api";
-import { usePQuery, useProjectId } from "../../app/hooks";
+import { useAI, usePQuery, useProjectId } from "../../app/hooks";
+import { toast } from "../../components/feedback";
 import { Badge, Card, ErrorBox, Field, Notice, PageHeader, Spinner, Table, fmtBytes, fmtNum } from "../../components/ui";
 
 const TYPES = ["string", "identifier", "integer", "float", "boolean", "date", "datetime", "email", "phone", "latitude", "longitude"];
@@ -36,6 +37,16 @@ export function Ingestion() {
   const [err, setErr] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
+  const ai = useAI();
+  const [aiMarked, setAiMarked] = useState<Set<string>>(new Set());
+  const suggestAI = () => run(async () => {
+    const r = await api(pp(pid, "/ai/schema-mapping"), { body: { file_id: file.id } });
+    const next = { ...mapping };
+    for (const [col, sg] of Object.entries(r.suggestions as Record<string, Spec>)) next[col] = { ...next[col], ...sg, include: true };
+    setMapping(next);
+    setAiMarked(new Set(Object.keys(r.suggestions)));
+    toast.info(`Applied ${Object.keys(r.suggestions).length} model suggestion(s); ${r.rejected.length} rejected by validation. Review before continuing.`);
+  });
   const targets = useMemo(() => Object.values(mapping).filter((m) => m.include).map((m) => m.target), [mapping]);
 
   const run = async (fn: () => Promise<void>) => {
@@ -158,6 +169,7 @@ export function Ingestion() {
 
       {step === 2 && (
         <Card title="Map columns to canonical fields" actions={<>
+          {ai && <button className="btn" onClick={suggestAI} disabled={busy}>Suggest with local AI</button>}
           <button className="btn" onClick={() => setStep(1)}>Back</button>
           <button className="btn btn-primary" onClick={() => setStep(3)}>Continue</button></>}>
           <div className="mb-3 grid gap-3 md:grid-cols-4">
@@ -177,7 +189,7 @@ export function Ingestion() {
               const upd = (p: Partial<Spec & { include: boolean }>) => setMapping({ ...mapping, [src]: { ...m, ...p } });
               return [
                 <input type="checkbox" checked={m.include} onChange={(e) => upd({ include: e.target.checked })} aria-label={`include ${src}`} />,
-                <code className="font-mono">{src}</code>,
+                <span><code className="font-mono">{src}</code>{aiMarked.has(src) && <Badge tone="hypo">AI</Badge>}</span>,
                 <span className="text-muted">{String(insp.preview[0]?.[src] ?? "").slice(0, 30)}</span>,
                 <input className="input w-36 font-mono" value={m.target} onChange={(e) => upd({ target: e.target.value })} />,
                 <select className="input w-28" value={m.type} onChange={(e) => upd({ type: e.target.value })}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select>,
