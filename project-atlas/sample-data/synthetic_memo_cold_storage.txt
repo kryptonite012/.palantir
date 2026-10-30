@@ -1,0 +1,9 @@
+SYNTHETIC DEMONSTRATION DATA — fictional people and organizations.
+
+Internal memo — Aurora Cold Storage inspection
+
+On 12 March 2025 Ingrid Halvorsen of Bluefjord Freight AS met Tomas Berg at Aurora Cold Storage to review temperature logs for refrigerated containers. The inspection found two containers with incomplete records.
+
+Tomas Berg stated that the logging device in bay 4 had been replaced in February. Follow-up is assigned to Kestrel Customs Brokers, which handles the related customs declarations.
+
+Contact: tomas.berg@example.invalid, +47 455 12 345.

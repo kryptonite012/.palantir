@@ -1,0 +1,34 @@
+person_id,full_name,email,phone,date_of_birth,city,employer_id,record_origin
+P-1000,Amelia Okafor,amelia.okafor@example.invalid,+47 732 66 697,1993-12-09,Northwind Harbor,ORG-001,SYNTHETIC
+P-1001,Jonathan Mercer,jonathan.mercer@example.invalid,+47 659 78 532,1998-04-23,Bluefjord,ORG-002,SYNTHETIC
+P-1002,Lena Fischer,lena.fischer@example.invalid,+47 413 27 701,1976-06-18,Kestrel Bay,ORG-003,SYNTHETIC
+P-1003,Rafael Ortiz,rafael.ortiz@example.invalid,+47 590 40 580,1979-11-21,Aurora Point,ORG-004,SYNTHETIC
+P-1004,Ingrid Halvorsen,ingrid.halvorsen@example.invalid,+47 613 58 446,1977-10-09,Northwind Harbor,ORG-005,SYNTHETIC
+P-1005,Tomas Berg,,+47 474 40 967,1985-08-22,Bluefjord,ORG-006,SYNTHETIC
+P-1006,Sofia Lindqvist,sofia.lindqvist@example.invalid,+47 520 97 736,1987-11-01,Kestrel Bay,ORG-007,SYNTHETIC
+P-1007,Erik Nilsen,erik.nilsen@example.invalid,+47 843 15 279,1997-03-03,Aurora Point,ORG-008,SYNTHETIC
+P-1008,Nadia Haddad,nadia.haddad@example.invalid,+47 797 43 783,1979-11-19,Northwind Harbor,ORG-001,SYNTHETIC
+P-1009,Oskar Strand,oskar.strand@example.invalid,N/A,1985-06-07,Bluefjord,ORG-002,SYNTHETIC
+P-1010,Priya Raman,priya.raman@example.invalid,+47 703 54 790,1964-10-08,Kestrel Bay,ORG-003,SYNTHETIC
+P-1011,Henrik Dahl,henrik.dahl@example.invalid,+47 687 92 207,1983-06-26,Aurora Point,ORG-004,SYNTHETIC
+P-1012,Maja Solberg,astrid.moen(at)example.invalid,+47 991 24 579,1979-06-19,Northwind Harbor,ORG-005,SYNTHETIC
+P-1013,Daniel Kovacs,daniel.kovacs@example.invalid,+47 791 46 330,1975-06-23,Bluefjord,ORG-006,SYNTHETIC
+P-1014,Astrid Moen,astrid.moen@example.invalid,+47 905 50 417,1996-03-11,Kestrel Bay,ORG-007,SYNTHETIC
+P-1015,Lucas Bakke,lucas.bakke@example.invalid,+47 915 86 235,1977-06-26,Aurora Point,ORG-008,SYNTHETIC
+P-1016,Elena Rossi,elena.rossi@example.invalid,+47 730 27 977,1978-09-15,Northwind Harbor,ORG-001,SYNTHETIC
+P-1017,Magnus Eide,magnus.eide@example.invalid,+47 428 98 997,1963-11-13,Bluefjord,ORG-002,SYNTHETIC
+P-1018,Freya Lund,freya.lund@example.invalid,+47 918 94 634,1973-10-12,Kestrel Bay,ORG-003,SYNTHETIC
+P-1019,Viktor Petrov,viktor.petrov@example.invalid,+47 708 32 125,1960-06-08,Aurora Point,ORG-004,SYNTHETIC
+P-1020,Clara Novak,clara.novak@example.invalid,+47 448 88 610,1965-09-23,Northwind Harbor,ORG-005,SYNTHETIC
+P-1021,Anders Holm,anders.holm@example.invalid,+47 881 90 100,1973-02-11,Bluefjord,ORG-006,SYNTHETIC
+P-1022,Yara Aziz,yara.aziz@example.invalid,+47 854 30 185,1975-04-25,Kestrel Bay,ORG-007,SYNTHETIC
+P-1023,Sindre Vik,sindre.vik@example.invalid,+47 929 72 218,1988-06-18,Aurora Point,ORG-008,SYNTHETIC
+P-1024,Helena Larsen,helena.larsen@example.invalid,+47 883 45 383,1967-02-26,Northwind Harbor,ORG-001,SYNTHETIC
+P-1025,Mats Hauge,mats.hauge@example.invalid,+47 437 50 371,1993-12-13,Bluefjord,ORG-002,SYNTHETIC
+P-1026,Leila Karimi,leila.karimi@example.invalid,+47 446 90 999,1963-07-18,Kestrel Bay,ORG-003,SYNTHETIC
+P-1027,Jakob Brekke,jakob.brekke@example.invalid,+47 865 49 462,1963-04-05,Aurora Point,ORG-004,SYNTHETIC
+P-1028,Selma Aasen,selma.aasen@example.invalid,+47 533 78 191,1977-08-24,Northwind Harbor,ORG-005,SYNTHETIC
+P-1029,Petter Foss,petter.foss@example.invalid,+47 513 90 386,1980-04-14,Bluefjord,ORG-006,SYNTHETIC
+P-1030,Iris Moreau,iris.moreau@example.invalid,+47 699 87 997,1985-03-24,Kestrel Bay,ORG-007,SYNTHETIC
+P-1031,Kasper Jensen,kasper.jensen@example.invalid,+47 926 18 870,1968-06-22,Aurora Point,ORG-008,SYNTHETIC
+P-1003,Rafael Ortiz,rafael.ortiz@example.invalid,+47 590 40 580,1979-11-21,Aurora Point,ORG-004,SYNTHETIC
