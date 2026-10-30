@@ -1,0 +1,70 @@
+{
+  "synthetic": true,
+  "seed": 20251027,
+  "people": {
+    "rows": 33,
+    "unique_person_ids": 32,
+    "exact_duplicate_rows": 1,
+    "missing_email_rows": 1,
+    "invalid_email_rows": 1,
+    "null_token_phone_rows": 1
+  },
+  "organizations": {
+    "rows": 8
+  },
+  "transactions": {
+    "rows": 60,
+    "invalid_timestamps": 1,
+    "latitude_out_of_range": 1,
+    "null_island": 1,
+    "statistical_outliers_amount": [
+      "T-5007",
+      "T-5023"
+    ],
+    "note": "Outliers are statistically unusual values only; they are not labelled as fraud."
+  },
+  "entity_resolution": {
+    "after_importing_people_and_contacts": {
+      "person_entities_before_resolution": 37
+    },
+    "expected_strong_matches": [
+      [
+        "Dr. Amelia Okafor",
+        "Amelia Okafor"
+      ],
+      [
+        "Jon Mercer",
+        "Jonathan Mercer"
+      ]
+    ],
+    "expected_ambiguous_matches": [
+      [
+        "Lena Fisher",
+        "Lena Fischer"
+      ]
+    ],
+    "expected_not_strong": [
+      [
+        "Rafael Ortiz",
+        "Rafael Ortiz",
+        "conflicting phone identifier"
+      ]
+    ],
+    "expected_no_match": [
+      "Gunnar Thorsen"
+    ]
+  },
+  "graph": {
+    "works_for_relationships": 32,
+    "organizations": 8,
+    "note": "Each person in synthetic_people.csv works for exactly one organization (employer_id)."
+  },
+  "documents": {
+    "count": 5,
+    "prompt_injection_document": "synthetic_suspicious_note.txt",
+    "pdf_pages": 2
+  },
+  "geo": {
+    "districts": 4
+  }
+}

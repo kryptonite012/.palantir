@@ -1,0 +1,6 @@
+name,email,phone,city,source_note,record_origin
+Dr. Amelia Okafor,amelia.okafor@example.invalid,,Northwind Harbor,conference badge scan,SYNTHETIC
+Jon Mercer,,+47 659 78 532,Bluefjord,port visitor log,SYNTHETIC
+Lena Fisher,,,Kestrel Bay,handwritten list,SYNTHETIC
+Rafael Ortiz,,+47 111 22 333,Aurora Point,supplier directory,SYNTHETIC
+Gunnar Thorsen,gunnar.thorsen@example.invalid,,Bluefjord,newsletter signup,SYNTHETIC
