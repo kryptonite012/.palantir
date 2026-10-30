@@ -1,0 +1,40 @@
+{
+  "machine": {
+    "platform": "Linux-6.18.44-fc-v165-x86_64-with-glibc2.39",
+    "python": "3.13.17",
+    "cpus": 4
+  },
+  "rows": 100000,
+  "people": 5000,
+  "timings": {
+    "generate synthetic csv": 0.544,
+    "import people (5000 rows, entities)": 12.568,
+    "import transactions (100000 rows, plain)": 15.802,
+    "import_rows_per_second_plain": 6328,
+    "import transactions (100000 rows, entities+links+events+geo)": 109.441,
+    "import_rows_per_second_full": 914,
+    "search_latency_ms_p50": 166.1,
+    "search_latency_ms_p95": 373.6,
+    "SQL aggregate (group by over full table)": 0.496,
+    "entity resolution (person type)": 29.761,
+    "analysis: describe (all fields)": 0.506,
+    "analysis: outliers(amount)": 0.406,
+    "graph: overview (top 300 nodes)": 0.884,
+    "graph: pagerank": 6.141,
+    "graph: communities (louvain)": 8.706,
+    "graph: betweenness (sampled k=500 if >2000 nodes)": 46.455,
+    "timeline query (2000 events)": 0.204,
+    "geo radius query (5 km)": 0.391,
+    "report PDF export (2000-row table)": 2.942,
+    "backup (unencrypted)": 46.161,
+    "backup verify": 18.831
+  },
+  "backup_size_mb": 160.7,
+  "database_size_mb": 623.2,
+  "resulting_counts": {
+    "records": 205000,
+    "entities": 5499,
+    "relationships": 99767
+  },
+  "peak_rss_mb": 1291.1
+}
