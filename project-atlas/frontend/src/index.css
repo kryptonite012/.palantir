@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* light theme */
+  --bg: 241 244 247;
+  --panel: 255 255 255;
+  --raised: 232 237 242;
+  --line: 208 216 224;
+  --ink: 24 32 42;
+  --muted: 92 106 120;
+  --accent: 43 111 160;
+  --warn: 176 120 20;
+  --danger: 186 52 52;
+  --ok: 38 132 86;
+  --hypo: 142 92 190;
+}
+.dark {
+  --bg: 15 18 23;
+  --panel: 22 27 34;
+  --raised: 30 37 46;
+  --line: 44 53 64;
+  --ink: 222 229 236;
+  --muted: 138 151 166;
+  --accent: 88 166 222;
+  --warn: 224 170 70;
+  --danger: 232 98 98;
+  --ok: 86 190 136;
+  --hypo: 184 140 232;
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-bg text-ink font-sans antialiased; font-size: 13px; }
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--line)) transparent; }
+:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 1px; }
+
+.atlas-boot { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 10px;
+  color: #8a97a6; font-family: system-ui, sans-serif; letter-spacing: .2em; text-transform: uppercase; font-size: 12px; background: #0f1217; }
+
+@layer components {
+  .btn { @apply inline-flex items-center gap-1.5 rounded-md border border-line bg-raised px-2.5 py-1 text-xs font-medium text-ink hover:border-accent/60 disabled:opacity-50 disabled:cursor-not-allowed transition-colors; }
+  .btn-primary { @apply bg-accent text-white border-accent hover:bg-accent/90; }
+  .btn-danger { @apply bg-danger/15 text-danger border-danger/40 hover:bg-danger/25; }
+  .btn-ghost { @apply border-transparent bg-transparent hover:bg-raised; }
+  .input { @apply w-full rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink placeholder:text-muted focus:border-accent focus:outline-none; }
+  .label { @apply mb-1 block text-xxs font-semibold uppercase tracking-wider text-muted; }
+  .card { @apply rounded-lg border border-line bg-panel; }
+  .card-h { @apply flex items-center justify-between border-b border-line px-3 py-2 text-xs font-semibold; }
+  .tbl { @apply w-full border-collapse text-xs; }
+  .tbl th { @apply sticky top-0 z-10 border-b border-line bg-raised px-2 py-1.5 text-left text-xxs font-semibold uppercase tracking-wider text-muted; }
+  .tbl td { @apply border-b border-line/60 px-2 py-1 align-top; }
+  .tbl tr:hover td { @apply bg-raised/50; }
+  .chip { @apply inline-flex items-center rounded px-1.5 py-0.5 text-xxs font-semibold; }
+  .kbd { @apply rounded border border-line bg-raised px-1 font-mono text-xxs; }
+}
+
+.maplibregl-popup-content { background: rgb(var(--panel)) !important; color: rgb(var(--ink)); border: 1px solid rgb(var(--line)); font-size: 12px; }
+.maplibregl-popup-tip { display: none; }
+.react-flow__node { font-size: 11px; }
