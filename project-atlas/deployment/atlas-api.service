@@ -1,0 +1,27 @@
+# systemd unit for the Project Atlas private-LAN profile (example).
+# Install: copy to /etc/systemd/system/atlas-api.service, adjust paths/user, then
+#   systemctl daemon-reload && systemctl enable --now atlas-api
+[Unit]
+Description=Project Atlas API (atlas-api)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=atlas
+Group=atlas
+WorkingDirectory=/opt/project-atlas
+# .env in the working directory holds ATLAS_* settings (see .env.example), e.g.:
+#   ATLAS_ENV=production  ATLAS_HOST=127.0.0.1  ATLAS_ALLOW_LAN=false (nginx terminates TLS on the LAN address)
+#   ATLAS_DATABASE_URL=postgresql+psycopg://atlas@/atlas_prod   ATLAS_TLS_TERMINATED=true
+ExecStart=/opt/project-atlas/venv/bin/atlas serve
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/project-atlas/atlas-workspace /opt/project-atlas/atlas-backups
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
