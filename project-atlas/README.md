@@ -114,6 +114,10 @@ project-atlas/
 [Backup & recovery](docs/backup-recovery.md) · [Troubleshooting](docs/troubleshooting.md) · [API](docs/api.md) ·
 [Release notes](docs/release-notes.md) · [Engineering report](docs/engineering-report.md)
 
+**Overview document and slides:** a 46-page [technical overview PDF](docs/overview/Project-Atlas-Technical-Overview.pdf)
+and a 24-slide [presentation](docs/overview/Project-Atlas-Presentation.pptx) ([PDF](docs/overview/Project-Atlas-Presentation.pdf))
+explain the whole project; see [docs/overview](docs/overview/README.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Bundled DejaVu fonts and Natural Earth data keep their own licenses.
